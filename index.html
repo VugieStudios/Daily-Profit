@@ -929,6 +929,7 @@ function renderResults(r,fromLocked){
   $('btnShareImg').onclick=async()=>{Sound.click();if(!shareBlob){toast('Still drawing… one sec');return;}
     const name=`daily-profit-${c.mode==='archive'?'archive':'day'}-${c.day}.png`,file=new File([shareBlob],name,{type:'image/png'});
     try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],text:shareText(r,meta)});return;}}catch(e){if(e&&e.name==='AbortError')return;}
+    if(!/^https?:/.test(location.href)||/claude\.ai|claudeusercontent/.test(location.host)){if(/claude/.test(location.host)){toast('Long-press or right-click the card to save it');return;}}
     try{const a=document.createElement('a');a.href=$('shareImg').src;a.download=name;document.body.appendChild(a);a.click();a.remove();toast('🖼️ Image saved');}catch(e){toast('Long-press the card to save it');}};
 
   // leaderboard + crowd
