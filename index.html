@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#059669">
+<title>DAILY PROFIT: Mini-Tycoon</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+if(window.tailwind)tailwind.config={theme:{extend:{
+  fontFamily:{display:['Fredoka','system-ui','sans-serif'],sans:['Inter','system-ui','sans-serif']},
+  colors:{gold:{50:'#fffbeb',100:'#fef3c7',300:'#fcd973',400:'#f8c537',500:'#e9a90c',600:'#c98a04',700:'#9a6a03'}},
+  boxShadow:{card:'0 1px 0 rgba(15,23,42,.04), 0 10px 30px -12px rgba(15,23,42,.22)'}
+}}};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html,body{background:#ecfdf5;-webkit-tap-highlight-color:transparent}
+  body{background-image:radial-gradient(circle at 15% 0%,#d1fae5 0,transparent 45%),radial-gradient(circle at 100% 30%,#fef3c7 0,transparent 40%);min-height:100vh;overscroll-behavior-y:none}
+  .tabular{font-variant-numeric:tabular-nums}
+  .btn3d{position:relative;transition:transform .08s ease,box-shadow .08s ease,filter .15s;user-select:none}
+  .btn3d:active:not(:disabled){transform:translateY(4px)}
+  .btn-em{background:linear-gradient(180deg,#10b981,#059669);color:#fff;box-shadow:0 5px 0 #065f46,0 10px 20px -8px rgba(5,150,105,.6)}
+  .btn-em:active:not(:disabled){box-shadow:0 1px 0 #065f46}
+  .btn-gold{background:linear-gradient(180deg,#fcd973,#f8c537 45%,#e9a90c);color:#5b3d02;box-shadow:0 5px 0 #9a6a03,0 10px 20px -8px rgba(233,169,12,.7)}
+  .btn-gold:active:not(:disabled){box-shadow:0 1px 0 #9a6a03}
+  .btn-white{background:#fff;color:#065f46;box-shadow:0 4px 0 #a7f3d0,0 8px 16px -8px rgba(15,23,42,.2);border:2px solid #d1fae5}
+  .btn-white:active:not(:disabled){box-shadow:0 0 0 #a7f3d0}
+  .btn3d:disabled{filter:grayscale(.7);opacity:.6;cursor:not-allowed}
+  .card{background:#fff;border-radius:1.5rem;box-shadow:0 1px 0 rgba(15,23,42,.04),0 10px 30px -12px rgba(15,23,42,.22);border:1px solid rgba(16,185,129,.12)}
+  /* sliders */
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:999px;background:linear-gradient(90deg,var(--c1,#10b981) 0,var(--c1,#10b981) var(--p,50%),#e2e8f0 var(--p,50%),#e2e8f0 100%);outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;border:4px solid var(--c1,#10b981);box-shadow:0 3px 0 rgba(0,0,0,.15),0 4px 12px rgba(0,0,0,.15);transition:transform .1s}
+  input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
+  input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:4px solid var(--c1,#10b981);box-shadow:0 3px 0 rgba(0,0,0,.15)}
+  .cap-hit{animation:shake .3s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @keyframes pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+  @keyframes slideIn{from{transform:translateY(-12px);opacity:0}to{transform:none;opacity:1}}
+  @keyframes floatUp{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-60px);opacity:0}}
+  @keyframes bounce2{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
+  @keyframes bannerIn{0%{transform:translateY(-120%) scale(.9)}60%{transform:translateY(8%) scale(1.02)}100%{transform:none}}
+  @keyframes shine{from{background-position:-200% 0}to{background-position:200% 0}}
+  @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+  @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(248,197,55,.7)}100%{box-shadow:0 0 0 14px rgba(248,197,55,0)}}
+  .pop{animation:pop .45s cubic-bezier(.2,.9,.3,1.3) both}
+  .feed-item{animation:slideIn .25s ease-out both}
+  .float-coin{position:absolute;animation:floatUp .9s ease-out forwards;pointer-events:none;font-weight:800}
+  .stall{animation:bounce2 .9s ease-in-out infinite}
+  .banner-in{animation:bannerIn .55s cubic-bezier(.2,.9,.3,1.2) both}
+  .gold-shine{background:linear-gradient(110deg,#e9a90c 20%,#fff3c4 40%,#f8c537 55%,#e9a90c 75%);background-size:200% 100%;animation:shine 2.5s linear infinite}
+  .pulse-gold{animation:pulseRing 1.6s infinite}
+  .confetti{position:fixed;top:-40px;z-index:80;pointer-events:none;animation:fall linear forwards}
+  .modal-bg{background:rgba(2,44,34,.55);backdrop-filter:blur(4px)}
+  .hide{display:none!important}
+  .no-scrollbar::-webkit-scrollbar{display:none}
+  .grain{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.06) 0 10px,transparent 10px 20px)}
+</style>
+</head>
+<body class="font-sans text-slate-800 antialiased">
+<div class="mx-auto max-w-md px-4 pb-16 pt-[max(12px,env(safe-area-inset-top))]">
+
+  <!-- HEADER -->
+  <header class="flex items-center justify-between py-2">
+    <div class="flex items-center gap-2">
+      <div class="relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 text-2xl shadow-[0_4px_0_#065f46]">💰<span id="proBadge" class="hide gold-shine absolute -right-2 -top-2 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold leading-none text-amber-900 shadow-[0_2px_0_#9a6a03]">👑PRO</span></div>
+      <div class="leading-none">
+        <div class="whitespace-nowrap font-display text-[22px] font-bold tracking-tight text-emerald-900">DAILY PROFIT</div>
+        <div class="mt-0.5 text-[11px] font-bold uppercase tracking-[.2em] text-gold-600">Mini-Tycoon</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+            <button id="btnMute" class="btn3d btn-white grid h-10 w-10 place-items-center rounded-xl text-lg" aria-label="Toggle sound">🔊</button>
+      <button id="btnHelp" class="btn3d btn-white grid h-10 w-10 place-items-center rounded-xl text-lg font-bold" aria-label="How to play">?</button>
+      <button id="btnArchive" class="btn3d btn-gold grid h-10 w-10 place-items-center rounded-xl text-lg" aria-label="Archive and Pro Pass">🗂️</button>
+    </div>
+  </header>
+
+  <!-- CAREER STATS -->
+  <section class="mt-2 grid grid-cols-3 gap-2">
+    <div class="card px-3 py-2.5 text-center"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Streak</div><div class="font-display text-xl font-bold text-orange-500 tabular"><span id="stStreak">0</span> 🔥</div></div>
+    <div class="card px-3 py-2.5 text-center"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Net Worth</div><div id="stNet" class="font-display text-xl font-bold text-emerald-700 tabular">$0</div></div>
+    <div class="card px-3 py-2.5 text-center"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Best Streak</div><div class="font-display text-xl font-bold text-gold-600 tabular"><span id="stBest">0</span> 🏆</div></div>
+  </section>
+
+  <main id="app" class="mt-4">
+    <section id="screenHome"></section>
+    <section id="screenSim" class="hide"></section>
+    <section id="screenResults" class="hide"></section>
+  </main>
+
+  <footer class="mt-8 text-center text-[11px] text-slate-400">
+    Same challenge for every player · resets 00:00 UTC<br>
+    <button id="btnReset" class="mt-2 underline decoration-dotted">Reset demo data</button>
+  </footer>
+</div>
+
+<!-- AD MODAL -->
+<div id="modalAd" class="modal-bg fixed inset-0 z-50 hide grid place-items-center p-5">
+  <div class="card pop w-full max-w-sm overflow-hidden">
+    <div class="flex items-center justify-between bg-slate-900 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-slate-300">
+      <span>Sponsored · Simulated ad</span>
+      <span id="adTimer" class="tabular rounded-full bg-white/10 px-2 py-0.5">5s</span>
+    </div>
+    <div class="grain bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-600 px-6 py-8 text-center text-white">
+      <div class="text-6xl stall inline-block">🧋</div>
+      <div class="mt-3 font-display text-3xl font-bold">BOBA BLITZ</div>
+      <div class="mt-1 text-sm text-white/80">The bubble-tea puzzle game. Tap, pop, repeat.</div>
+      <div class="mt-4 inline-block rounded-full bg-white px-4 py-1.5 text-sm font-extrabold text-violet-700">★★★★★ Play free</div>
+    </div>
+    <div class="p-4">
+      <div class="h-2.5 overflow-hidden rounded-full bg-slate-100"><div id="adBar" class="h-full w-0 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style="transition:width .2s linear"></div></div>
+      <button id="adClaim" disabled class="btn3d btn-em mt-4 w-full rounded-2xl py-3.5 font-display text-lg font-bold">Reward in 5…</button>
+      <p class="mt-2 text-center text-[11px] text-slate-400">Demo placeholder — plug in a rewarded-video SDK here.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PRO / ARCHIVE MODAL -->
+<div id="modalPro" class="modal-bg fixed inset-0 z-50 hide flex items-end justify-center sm:items-center sm:p-5">
+  <div class="card pop flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-b-none sm:rounded-b-3xl">
+    <div class="relative bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-950 px-5 pb-5 pt-4 text-white">
+      <button data-close="modalPro" class="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-lg">✕</button>
+      <div class="text-[11px] font-bold uppercase tracking-[.2em] text-gold-300">Archive & Pro Pass</div>
+      <div class="mt-1 font-display text-2xl font-bold">Play every scenario, anytime</div>
+      <ul id="proPerks" class="mt-3 space-y-1.5 text-sm text-emerald-50">
+        <li>🗂️ Unlock all 30 scenarios in the Archive</li>
+        <li>⚡ Instant retries — no ad wait</li>
+        <li>🚫 No banner ads</li>
+        <li>👑 Gold VIP crown on your share card</li>
+      </ul>
+      <div id="proCta" class="mt-4">
+        <button id="btnUnlockPro" class="btn3d btn-gold pulse-gold w-full rounded-2xl py-3.5 font-display text-lg font-bold">Unlock Pro Demo · $2.99</button>
+        <p class="mt-1.5 text-center text-[11px] text-emerald-200/80">One-time · simulated checkout</p>
+      </div>
+      <div id="proOwned" class="hide mt-4 rounded-2xl bg-white/10 px-4 py-3 text-center font-display text-lg font-bold text-gold-300">👑 Pro Pass active — enjoy!</div>
+    </div>
+    <div class="no-scrollbar overflow-y-auto p-4">
+      <div class="mb-4">
+        <button id="promoToggle" class="text-sm font-semibold text-emerald-700 underline decoration-dotted">🎟️ Have a promo code?</button>
+        <form id="promoForm" class="hide mt-2 flex gap-2" autocomplete="off">
+          <input id="promoInput" type="text" placeholder="Enter code" maxlength="32" autocapitalize="characters" spellcheck="false" class="min-w-0 flex-1 rounded-xl border-2 border-emerald-100 bg-white px-3 py-2.5 font-semibold uppercase tracking-wider text-slate-700 outline-none focus:border-emerald-400">
+          <button type="submit" class="btn3d btn-em shrink-0 rounded-xl px-4 py-2.5 font-display font-bold">Apply</button>
+        </form>
+        <div id="promoMsg" class="mt-1.5 text-xs font-semibold"></div>
+      </div>
+      <div class="mb-2 flex items-center justify-between">
+        <div class="font-display text-lg font-bold text-emerald-900">Scenario Archive</div>
+        <div class="text-xs font-semibold text-slate-400">Day 1 – 30</div>
+      </div>
+      <div id="archiveGrid" class="grid grid-cols-3 gap-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div id="modalCheckout" class="modal-bg fixed inset-0 z-[60] hide grid place-items-center p-5">
+  <div class="card pop w-full max-w-sm p-5">
+    <div class="flex items-center justify-between">
+      <div class="text-xs font-bold uppercase tracking-widest text-slate-400">🔒 Checkout · Demo</div>
+      <button data-close="modalCheckout" class="text-slate-400">✕</button>
+    </div>
+    <div id="coBody">
+      <div class="mt-4 flex items-center gap-3 rounded-2xl bg-gold-50 p-3 ring-1 ring-gold-300">
+        <div class="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-b from-gold-300 to-gold-500 text-2xl">👑</div>
+        <div class="flex-1"><div class="font-bold">DAILY PROFIT Pro Pass</div><div class="text-xs text-slate-500">Lifetime · all scenarios</div></div>
+        <div class="font-display text-xl font-bold">$2.99</div>
+      </div>
+      <div class="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">This is a demo flow. No payment details are collected and nothing is charged. In production, this button would redirect to a hosted payment page.</div>
+      <button id="btnPay" class="btn3d btn-em mt-4 w-full rounded-2xl py-3.5 font-display text-lg font-bold">Complete demo purchase</button>
+    </div>
+    <div id="coProcessing" class="hide py-8 text-center">
+      <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-600"></div>
+      <div class="mt-3 font-semibold text-slate-600">Processing…</div>
+    </div>
+    <div id="coDone" class="hide py-6 text-center">
+      <div class="pop text-6xl">👑</div>
+      <div class="mt-2 font-display text-2xl font-bold text-emerald-800">Welcome to Pro!</div>
+      <div class="text-sm text-slate-500">All 30 scenarios unlocked.</div>
+      <button data-close="modalCheckout" class="btn3d btn-gold mt-4 w-full rounded-2xl py-3 font-display text-lg font-bold">Let's go</button>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div id="modalHelp" class="modal-bg fixed inset-0 z-50 hide grid place-items-center p-5">
+  <div class="card pop w-full max-w-sm p-5">
+    <div class="flex items-center justify-between"><div class="font-display text-2xl font-bold text-emerald-900">How to play</div><button data-close="modalHelp" class="text-slate-400 text-lg">✕</button></div>
+    <ol class="mt-3 space-y-3 text-sm text-slate-600">
+      <li><b class="text-emerald-800">1 · Read the market.</b> Every day, every player gets the same business, budget and conditions.</li>
+      <li><b class="text-emerald-800">2 · Make 3 calls.</b> How much stock to buy, what to charge, and how much to spend on marketing. Stock + marketing can't exceed your budget.</li>
+      <li><b class="text-emerald-800">3 · Survive the twist.</b> Breaking news hits at 4:00 PM — good or bad. Plan for it.</li>
+      <li><b class="text-emerald-800">4 · Bank the profit.</b> One ranked run per day. Keep your streak alive and grow your net worth.</li>
+    </ol>
+    <div class="mt-4 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800">💡 Sold out early = too little stock or too cheap. Leftovers = too much stock or too pricey. Perishables are worth $0 at close.</div>
+    <button data-close="modalHelp" class="btn3d btn-em mt-4 w-full rounded-2xl py-3 font-display text-lg font-bold">Got it</button>
+  </div>
+</div>
+
+<div id="toast" class="pointer-events-none fixed inset-x-0 bottom-6 z-[90] flex justify-center px-4"></div>
+<script>
+/* ================= SOUND (Web Audio, no files) ================= */
+const Sound={ctx:null,muted:false,last:0,
+  init(){try{if(!this.ctx){const C=window.AudioContext||window.webkitAudioContext;if(C)this.ctx=new C();}if(this.ctx&&this.ctx.state==='suspended')this.ctx.resume();}catch(e){}},
+  tone(f,d,type='sine',v=.12,when=0,slide){if(this.muted||!this.ctx)return;const t=this.ctx.currentTime+when,o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(g).connect(this.ctx.destination);o.start(t);o.stop(t+d+.02);},
+  noise(d,v=.15,when=0,hp=2000){if(this.muted||!this.ctx)return;const t=this.ctx.currentTime+when,len=Math.floor(this.ctx.sampleRate*d),b=this.ctx.createBuffer(1,len,this.ctx.sampleRate),ch=b.getChannelData(0);for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*(1-i/len);const s=this.ctx.createBufferSource(),f=this.ctx.createBiquadFilter(),g=this.ctx.createGain();s.buffer=b;f.type='highpass';f.frequency.value=hp;g.gain.value=v;s.connect(f).connect(g).connect(this.ctx.destination);s.start(t);},
+  coin(){const n=performance.now();if(n-this.last<85)return;this.last=n;this.tone(988,.07,'square',.045);this.tone(1319,.16,'square',.045,.06);},
+  register(){this.noise(.06,.2,0,3000);this.tone(180,.05,'square',.08);this.tone(1568,.5,'triangle',.12,.08);this.tone(2093,.6,'triangle',.1,.12);this.tone(2637,.5,'sine',.06,.16);},
+  tick(){const n=performance.now();if(n-this.last<40)return;this.last=n;this.tone(1400,.025,'square',.025);},
+  buzz(){this.tone(140,.15,'sawtooth',.06);},
+  click(){this.tone(700,.05,'triangle',.08);},
+  alertGood(){[523,659,784,1047].forEach((f,i)=>this.tone(f,.18,'square',.06,i*.08));},
+  alertBad(){[440,0,440].forEach((f,i)=>f&&this.tone(f,.22,'sawtooth',.06,i*.18,f*.7));this.tone(220,.4,'sawtooth',.05,.5,160);},
+  star(i){this.tone(660*Math.pow(2,i*4/12),.22,'triangle',.1);},
+  fail(){this.tone(392,.25,'triangle',.1,0,330);this.tone(330,.4,'triangle',.1,.22,247);},
+  fanfare(){[523,659,784,1047,1319].forEach((f,i)=>this.tone(f,.3,'triangle',.09,i*.09));}
+};
+document.addEventListener('pointerdown',()=>Sound.init(),{passive:true});
+
+/* ================= DATA ================= */
+const CURVES={
+ lunch:[0.6,0.9,1.4,1.5,1.1,0.8,0.8,0.9,1.1,1.0,0.7,0.5],
+ evening:[0.4,0.5,0.6,0.7,0.8,0.9,1.1,1.3,1.6,1.7,1.5,1.2],
+ morning:[1.7,1.5,1.3,1.1,1.0,0.9,0.8,0.8,0.7,0.6,0.5,0.4],
+ afternoon:[0.5,0.7,1.0,1.3,1.5,1.6,1.5,1.3,1.0,0.8,0.6,0.4],
+ night:[0.3,0.3,0.4,0.5,0.6,0.7,0.9,1.1,1.4,1.8,2.2,2.4],
+ flat:[0.9,1.0,1.0,1.1,1.0,1.0,1.0,1.0,1.1,1.0,0.9,0.8]
+};
+const BASE_CONV=0.32;
+/* 30 scenarios. traffic = base foot traffic (visitors/hour), sens = price sensitivity (elasticity),
+   mk = marketing power, salvage = share of unit cost recovered on leftovers (0 = perishable) */
+const SCENARIOS=[
+ {"id":1,"emoji":"🍓","title":"Festival Smoothie Stand","place":"Summer music festival · 40k fans","weather":"☀️ 32°C scorcher","market":"📈 Thirsty crowds","budget":800,"cost":2.2,"ref":7,"traffic":43,"sens":1.6,"mk":0.8,"salvage":0,"curve":"afternoon","twist":{"type":"pos","icon":"🎤","headline":"Headliner delayed 2 hours!","detail":"Thousands of fans stuck waiting right next to your stand.","traffic":1.6}},
+ {"id":2,"emoji":"☂️","title":"Rainy Day Umbrella Cart","place":"Downtown commuter square","weather":"🌧️ Heavy showers","market":"📊 Desperate buyers","budget":600,"cost":4,"ref":14,"traffic":14,"sens":1.3,"mk":0.5,"salvage":0.7,"curve":"morning","twist":{"type":"neg","icon":"🌤️","headline":"Rain stops, sun breaks through!","detail":"Nobody wants an umbrella anymore. Prices collapse.","traffic":0.35,"ref":0.6}},
+ {"id":3,"emoji":"☕","title":"Midnight Exam Coffee Truck","place":"University campus · finals week","weather":"🌙 Cold & clear","market":"😵 Sleep-deprived market","budget":500,"cost":0.9,"ref":4.5,"traffic":58,"sens":1.5,"mk":1,"salvage":0,"curve":"night","twist":{"type":"pos","icon":"📚","headline":"Library extends hours to 3 AM!","detail":"Panicked students flood the quad for caffeine.","traffic":1.5}},
+ {"id":4,"emoji":"⛷️","title":"Ski Resort Hot Cocoa","place":"Alpine slope base station","weather":"❄️ -8°C, fresh powder","market":"🏔️ Premium tourists","budget":700,"cost":1.3,"ref":6,"traffic":56,"sens":1.4,"mk":0.7,"salvage":0,"curve":"morning","twist":{"type":"neg","icon":"🚡","headline":"Blizzard warning — lifts closed!","detail":"Skiers head back to the hotels early.","traffic":0.45}},
+ {"id":5,"emoji":"👟","title":"Black Friday Sneaker Pop-up","place":"City mall atrium","weather":"🛍️ Indoor, packed","market":"🔥 Hype-driven","budget":5000,"cost":85,"ref":190,"traffic":5,"sens":1.8,"mk":1.2,"salvage":0.85,"curve":"lunch","twist":{"type":"pos","icon":"🎧","headline":"Famous rapper wears your colorway on stream!","detail":"Resellers sprint to the mall. Demand explodes.","traffic":2,"ref":1.25}},
+ {"id":6,"emoji":"🍫","title":"Viral Dubai Chocolate Stall","place":"Trendy street-food market","weather":"☁️ Mild, 18°C","market":"📱 TikTok frenzy","budget":1500,"cost":6,"ref":18,"traffic":29,"sens":1.5,"mk":1.3,"salvage":0.5,"curve":"afternoon","twist":{"type":"neg","icon":"🏪","headline":"Supermarket launches a $3.99 knockoff!","detail":"The hype cools as cheap copies hit the shelves.","ref":0.65,"traffic":0.85}},
+ {"id":7,"emoji":"🍦","title":"Beach Ice Cream Kiosk","place":"Boardwalk, peak season","weather":"🌡️ 35°C heatwave","market":"🏖️ Beach crowd","budget":900,"cost":1.1,"ref":4.5,"traffic":107,"sens":1.6,"mk":0.6,"salvage":0,"curve":"afternoon","twist":{"type":"neg","icon":"🪼","headline":"Jellyfish warning clears the beach!","detail":"Lifeguards wave everyone off the sand.","traffic":0.4}},
+ {"id":8,"emoji":"🌭","title":"Stadium Hot Dog Vendor","place":"Cup final, 60k capacity","weather":"🌥️ 14°C, breezy","market":"⚽ Hungry fans","budget":1200,"cost":1.6,"ref":6.5,"traffic":78,"sens":1.5,"mk":0.5,"salvage":0,"curve":"evening","twist":{"type":"pos","icon":"⏱️","headline":"Match goes to extra time!","detail":"Fans stay an extra hour — and they are starving.","traffic":1.7}},
+ {"id":9,"emoji":"🍷","title":"Christmas Market Glühwein","place":"Old-town square","weather":"🌨️ 2°C, festive","market":"🎄 Holiday spirit","budget":1000,"cost":1.5,"ref":5.5,"traffic":69,"sens":1.4,"mk":0.6,"salvage":0,"curve":"evening","twist":{"type":"pos","icon":"❄️","headline":"First snow of the year falls!","detail":"Romantic crowds want something warm — and will pay for it.","traffic":1.5,"ref":1.15}},
+ {"id":10,"emoji":"🔋","title":"Tech Conference Power Banks","place":"Expo hall, 12k attendees","weather":"🏢 Indoor","market":"💻 Battery anxiety","budget":2500,"cost":9,"ref":29,"traffic":25,"sens":1.5,"mk":0.8,"salvage":0.6,"curve":"lunch","twist":{"type":"pos","icon":"📡","headline":"Venue Wi-Fi dies — everyone is on 4G!","detail":"Phones drain fast. Chargers become gold.","traffic":1.4,"ref":1.3}},
+ {"id":11,"emoji":"🥖","title":"Farmers' Market Sourdough","place":"Saturday farmers' market","weather":"🌤️ 16°C, pleasant","market":"🥬 Foodie regulars","budget":450,"cost":2.2,"ref":8,"traffic":24,"sens":1.7,"mk":0.5,"salvage":0,"curve":"morning","twist":{"type":"neg","icon":"🧑‍🍳","headline":"Rival baker sets up right next door!","detail":"Same bread, lower prices. Customers compare.","ref":0.75,"traffic":0.8}},
+ {"id":12,"emoji":"🎃","title":"Halloween Costume Pop-up","place":"Empty shop on the high street","weather":"🍂 Windy, 11°C","market":"👻 Last-minute panic","budget":2000,"cost":11,"ref":32,"traffic":17,"sens":1.4,"mk":0.9,"salvage":0.4,"curve":"evening","twist":{"type":"neg","icon":"💨","headline":"Storm gust rips your awning — $150 repair!","detail":"You patch it up, but some shoppers walk past.","traffic":0.8,"cash":-150}},
+ {"id":13,"emoji":"🏃","title":"Marathon Gel & Water Station","place":"Kilometre 30 + finish area","weather":"🌤️ 19°C","market":"💦 Exhausted runners","budget":400,"cost":0.6,"ref":2.8,"traffic":78,"sens":1.5,"mk":0.4,"salvage":0,"curve":"morning","twist":{"type":"neg","icon":"🚧","headline":"Course closes early, crowds go home!","detail":"Barriers come down and the street empties.","traffic":0.3}},
+ {"id":14,"emoji":"🎸","title":"Concert Merch Booth","place":"Arena, sold-out show","weather":"🌃 Indoor","market":"🤘 Superfans","budget":3000,"cost":12,"ref":38,"traffic":23,"sens":1.6,"mk":0.7,"salvage":0.4,"curve":"night","twist":{"type":"pos","icon":"🎆","headline":"Surprise encore with a special guest!","detail":"Fans are euphoric and want a souvenir of tonight.","traffic":1.8,"ref":1.2}},
+ {"id":15,"emoji":"✈️","title":"Airport Neck Pillow Kiosk","place":"Terminal 2, gate area","weather":"⛈️ Storms inbound","market":"🧳 Tired travellers","budget":1200,"cost":6,"ref":22,"traffic":18,"sens":1.3,"mk":0.5,"salvage":0.7,"curve":"flat","twist":{"type":"pos","icon":"🛑","headline":"All flights grounded — 4,000 stranded!","detail":"A long night on airport chairs. Comfort sells.","traffic":2.2,"ref":1.3}},
+ {"id":16,"emoji":"🌮","title":"Food Truck Tacos","place":"Business district lunch spot","weather":"☀️ 24°C","market":"🏢 Office workers","budget":700,"cost":1.8,"ref":6,"traffic":46,"sens":1.7,"mk":0.8,"salvage":0,"curve":"lunch","twist":{"type":"neg","icon":"🕵️","headline":"Health inspector pulls 30% of your stock!","detail":"A fridge was 2 degrees too warm. Into the bin it goes.","stockLoss":0.3}},
+ {"id":17,"emoji":"🍋","title":"Record-Heat Lemonade Stand","place":"Suburban park entrance","weather":"🌡️ 38°C — record!","market":"🥵 Everyone is thirsty","budget":300,"cost":0.5,"ref":2.5,"traffic":70,"sens":1.5,"mk":0.9,"salvage":0,"curve":"afternoon","twist":{"type":"pos","icon":"📺","headline":"Local news films your stand!","detail":"You are on the 5 o'clock bulletin. A queue forms.","traffic":1.8}},
+ {"id":18,"emoji":"⚡","title":"Esports Arena Energy Drinks","place":"Gaming arena finals weekend","weather":"🏟️ Indoor, 22°C","market":"🎮 Hyped gamers","budget":900,"cost":1.2,"ref":4.5,"traffic":78,"sens":1.6,"mk":1,"salvage":0.3,"curve":"night","twist":{"type":"pos","icon":"🏆","headline":"Home team reaches the grand final!","detail":"Nobody is leaving. The arena roars.","traffic":1.6}},
+ {"id":19,"emoji":"🌹","title":"Valentine's Rose Seller","place":"Restaurant district","weather":"🌙 Clear, 6°C","market":"💘 Romantic urgency","budget":800,"cost":1.8,"ref":7,"traffic":46,"sens":1.3,"mk":0.6,"salvage":0,"curve":"evening","twist":{"type":"neg","icon":"🎁","headline":"Restaurant chain hands out free roses!","detail":"Why pay when the waiter gives you one?","ref":0.6,"traffic":0.7}},
+ {"id":20,"emoji":"🍜","title":"Cold-Snap Ramen Pop-up","place":"Night market alley","weather":"🥶 -2°C cold snap","market":"🍥 Comfort-food craving","budget":1100,"cost":2.5,"ref":11,"traffic":46,"sens":1.6,"mk":0.8,"salvage":0,"curve":"evening","twist":{"type":"pos","icon":"⭐","headline":"Food critic posts a 10/10 review!","detail":"The post goes viral. A line wraps around the block.","traffic":1.9}},
+ {"id":21,"emoji":"🧸","title":"Comic Con Plushie Stand","place":"Convention centre, Hall B","weather":"🏢 Indoor","market":"🦄 Collectors","budget":2200,"cost":7,"ref":24,"traffic":29,"sens":1.5,"mk":0.9,"salvage":0.6,"curve":"afternoon","twist":{"type":"neg","icon":"🚨","headline":"Fire alarm evacuates Hall B!","detail":"An hour on the pavement. Many visitors don't return.","traffic":0.5}},
+ {"id":22,"emoji":"🍂","title":"Pumpkin Spice Latte Cart","place":"Train station concourse","weather":"🍁 9°C, crisp","market":"☕ Autumn cravings","budget":600,"cost":1.1,"ref":5,"traffic":64,"sens":1.6,"mk":0.7,"salvage":0,"curve":"morning","twist":{"type":"neg","icon":"☕","headline":"Chain café launches 2-for-1 lattes!","detail":"Your loyal commuters are tempted away.","ref":0.7}},
+ {"id":23,"emoji":"🧇","title":"King's Day Stroopwafel Stall","place":"Orange-clad street party","weather":"🧡 17°C, sunny","market":"🎉 Party crowds","budget":500,"cost":0.7,"ref":3,"traffic":84,"sens":1.6,"mk":0.8,"salvage":0,"curve":"afternoon","twist":{"type":"pos","icon":"🎺","headline":"Orange parade passes your stall!","detail":"A brass band and 3,000 dancers. Snack time!","traffic":1.7}},
+ {"id":24,"emoji":"🎆","title":"New Year's Eve Sparkler Stand","place":"Riverside promenade","weather":"💨 Gusty, 4°C","market":"🥂 Party mood","budget":800,"cost":1.4,"ref":6,"traffic":60,"sens":1.5,"mk":0.8,"salvage":0.3,"curve":"night","twist":{"type":"neg","icon":"🚒","headline":"Fire brigade issues wind warning!","detail":"Authorities urge people to skip sparklers tonight.","traffic":0.45}},
+ {"id":25,"emoji":"🌷","title":"Tulip Field Selfie Bouquets","place":"Flower-field parking lot","weather":"🌸 15°C, blooming","market":"📸 Instagram tourists","budget":600,"cost":1.5,"ref":6.5,"traffic":42,"sens":1.5,"mk":0.7,"salvage":0,"curve":"lunch","twist":{"type":"neg","icon":"🚌","headline":"Tour buses rerouted by roadworks!","detail":"Half the afternoon visitors never arrive.","traffic":0.5}},
+ {"id":26,"emoji":"💪","title":"January Gym Protein Bars","place":"Busy city-centre gym","weather":"❄️ 3°C, January","market":"🏋️ Resolution season","budget":650,"cost":1.3,"ref":4.8,"traffic":59,"sens":1.7,"mk":1.1,"salvage":0.5,"curve":"evening","twist":{"type":"pos","icon":"🤳","headline":"Fitness influencer checks in at your gym!","detail":"Her followers rush in for the post-workout snack.","traffic":1.6}},
+ {"id":27,"emoji":"🌬️","title":"Heatwave Mini-Fan Stand","place":"Packed shopping street","weather":"🔥 36°C, humid","market":"😰 Sweaty shoppers","budget":900,"cost":4,"ref":13,"traffic":23,"sens":1.4,"mk":0.6,"salvage":0.6,"curve":"afternoon","twist":{"type":"neg","icon":"⛈️","headline":"Thunderstorm cools the city to 19°C!","detail":"Instant relief — and instant zero demand for fans.","traffic":0.4,"ref":0.7}},
+ {"id":28,"emoji":"🧋","title":"Startup Demo Day Bubble Tea","place":"Tech incubator lobby","weather":"🏢 Indoor, AC on","market":"🚀 Founders & investors","budget":700,"cost":1.6,"ref":6,"traffic":46,"sens":1.6,"mk":0.9,"salvage":0,"curve":"lunch","twist":{"type":"pos","icon":"💸","headline":"Investor buys a round for the whole room!","detail":"A single bulk order of 120 drinks — if your price is reasonable.","bulk":120}},
+ {"id":29,"emoji":"🍿","title":"Drive-In Cinema Popcorn","place":"Open-air drive-in","weather":"🌌 Clear night, 20°C","market":"🚗 Movie-goers","budget":500,"cost":0.6,"ref":4,"traffic":87,"sens":1.4,"mk":0.6,"salvage":0,"curve":"night","twist":{"type":"pos","icon":"🎬","headline":"Surprise double feature announced!","detail":"Everyone stays for movie two. Refills, anyone?","traffic":1.5}},
+ {"id":30,"emoji":"🚴","title":"Tour Stage Finish-Line Caps","place":"Final kilometre barriers","weather":"☀️ 26°C","market":"🚲 Cycling fanatics","budget":1800,"cost":5,"ref":18,"traffic":33,"sens":1.5,"mk":0.7,"salvage":0.5,"curve":"afternoon","twist":{"type":"pos","icon":"🏁","headline":"Local hero wins the stage in a sprint!","detail":"The crowd goes wild. Everyone wants a cap.","traffic":2,"ref":1.2}}
+];
+
+/* ================= ENGINE ================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function simulate(s,inv,price,mkt,seed){
+  const rnd=mulberry32(seed);const units=Math.floor(inv/s.cost+1e-9);let stock=units,carry=0,revenue=0,sold=0,lost=0,soldOut=null,bonus=0,spoiled=0;
+  const boost=1+s.mk*(1-Math.exp(-mkt/(s.budget*0.12)));const c=CURVES[s.curve];const hours=[];
+  for(let i=0;i<12;i++){
+    const tw=i>=6?s.twist:{};const noise=0.88+rnd()*0.24;
+    if(i===6){if(tw.stockLoss){spoiled=Math.floor(stock*tw.stockLoss);stock-=spoiled;}if(tw.cash)bonus+=tw.cash;}
+    const visitors=s.traffic*c[i]*boost*noise*(tw.traffic||1);const ref=s.ref*(tw.ref||1);
+    const conv=Math.min(0.92,BASE_CONV*Math.pow(ref/price,s.sens));
+    const want=visitors*conv+carry;let buyers=Math.floor(want);carry=want-buyers;let bulk=0;
+    if(i===6&&tw.bulk&&price<=s.ref*1.6){bulk=tw.bulk;buyers+=bulk;}
+    const sd=Math.min(buyers,stock);const had=stock;stock-=sd;const ls=buyers-sd;
+    if(stock===0&&had>0&&soldOut===null)soldOut=10+i+(buyers>0?sd/buyers:1);
+    revenue+=sd*price;sold+=sd;lost+=ls;
+    hours.push({visitors:Math.round(visitors),buyers,sold:sd,lost:ls,rev:sd*price,stock,priced:Math.max(0,Math.round(visitors*(1-conv))),bulk});
+  }
+  const salvage=stock*s.cost*s.salvage,spend=units*s.cost;
+  return{units,hours,revenue,sold,lost,leftover:stock,salvage,spend,mkt,bonus,spoiled,soldOut,profit:revenue+salvage+bonus-spend-mkt};
+}
+const optCache={};
+function optimize(s,seed){
+  const key=s.id+':'+seed;if(optCache[key])return optCache[key];
+  const B=s.budget,N=24,pMin=s.cost*0.8,pMax=s.ref*3;let best=null;
+  const test=(inv,p,mkt)=>{if(inv<0||mkt<0||inv+mkt>B+1e-6||p<=0)return;const r=simulate(s,inv,p,mkt,seed);if(!best||r.profit>best.profit)best={inv,price:p,mkt,profit:r.profit,res:r};};
+  for(let a=0;a<=N;a++)for(let b=0;a+b<=N;b++)for(let k=0;k<=48;k++)test(B*a/N,pMin+(pMax-pMin)*k/48,B*b/N);
+  const dI=B/N,dP=(pMax-pMin)/48,b0={...best};
+  for(let a=-4;a<=4;a++)for(let b=-4;b<=4;b++)for(let k=-10;k<=10;k++)test(b0.inv+a*dI/4,b0.price+k*dP/10,b0.mkt+b*dI/4);
+  return optCache[key]=best;
+}
+
+/* ================= DATES ================= */
+const DAY_MS=864e5,LAUNCH_DAY=Math.floor(Date.UTC(2026,10,1)/DAY_MS);
+const todayIdx=()=>Math.floor(Date.now()/DAY_MS);
+const dayNumFor=idx=>Math.max(1,idx-LAUNCH_DAY+1);
+const dateKey=idx=>new Date(idx*DAY_MS).toISOString().slice(0,10);
+function scenarioForDay(n){ // each 30-day cycle is a seeded shuffle of all 30 scenarios
+  const cycle=Math.floor((n-1)/30),perm=[...Array(30).keys()],r=mulberry32(0xC0FFEE+cycle*7919);
+  for(let i=29;i>0;i--){const j=Math.floor(r()*(i+1));[perm[i],perm[j]]=[perm[j],perm[i]];}
+  return SCENARIOS[perm[(n-1)%30]];
+}
+
+/* ================= STORAGE ================= */
+const KEY='dailyProfit.v1';
+const defaults={streak:0,best:0,last:null,net:0,history:{},pro:false,muted:false};
+let S;try{S=Object.assign({},defaults,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){S={...defaults};}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+Sound.muted=S.muted;
+const liveStreak=()=>(S.last!=null&&S.last>=todayIdx()-1)?S.streak:0;
+
+/* ================= HELPERS ================= */
+const $=id=>document.getElementById(id);
+const fmt$=(v,dec=0)=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+const signed$=v=>(v>=0?'+':'-')+fmt$(Math.abs(v));
+const clockStr=h=>{const hh=Math.floor(h),mm=Math.floor((h-hh)*60/5)*5,h12=((hh+11)%12)+1;return `${h12}:${String(mm).padStart(2,'0')} ${hh>=12&&hh<24?'PM':'AM'}`;};
+const priceStep=s=>s.ref<10?0.05:s.ref<40?0.25:s.ref<100?0.5:1;
+const moneyStep=s=>s.budget<=500?2:s.budget<=1500?5:s.budget<=3000?10:25;
+const fmtP=(s,v)=>fmt$(v,priceStep(s)<1?2:0);
+const sensLabel=s=>s.sens<1.45?['Low','text-emerald-600']:s.sens<1.6?['Medium','text-amber-600']:['High','text-rose-600'];
+const roundTo=(v,st)=>Math.round(v/st)*st;
+function toast(msg){const t=document.createElement('div');t.className='pop rounded-full bg-emerald-900 px-5 py-3 text-sm font-semibold text-white shadow-xl';t.textContent=msg;$('toast').innerHTML='';$('toast').appendChild(t);setTimeout(()=>t.remove(),2400);}
+function confetti(n=60,gold=false){const em=gold?['👑','✨','🪙','⭐','💛']:['💵','🪙','✨','💚','⭐'];for(let i=0;i<n;i++){const d=document.createElement('div');d.className='confetti';d.textContent=em[i%em.length];d.style.left=Math.random()*100+'vw';d.style.fontSize=(14+Math.random()*18)+'px';d.style.animationDuration=(1.8+Math.random()*1.8)+'s';d.style.animationDelay=(Math.random()*.6)+'s';document.body.appendChild(d);setTimeout(()=>d.remove(),4500);}}
+function stars(r){return r>=0.95?5:r>=0.8?4:r>=0.6?3:r>=0.3?2:1;}
+function percentile(ratio,seed){const j=(mulberry32(seed)()-.5)*2;const p=100/(1+Math.exp(-7.5*(ratio-0.62)))+j;return Math.min(99.6,Math.max(0.4,p));}
+function show(screen){['screenHome','screenSim','screenResults'].forEach(id=>$(id).classList.toggle('hide',id!==screen));window.scrollTo({top:0,behavior:'smooth'});}
+
+/* ================= CONTEXT ================= */
+let ctx=null; // {mode:'daily'|'retry'|'archive', scn, seed, day, inv, price, mkt}
+function dailyCtx(mode='daily'){const idx=todayIdx(),n=dayNumFor(idx),scn=scenarioForDay(n);return{mode,scn,seed:hashStr('daily-'+dateKey(idx)),day:n,idx};}
+function archiveCtx(id){const scn=SCENARIOS[id-1];return{mode:'archive',scn,seed:hashStr('archive-'+id),day:id,idx:null};}
+function defaults4(c){const s=c.scn,st=moneyStep(s);c.inv=roundTo(s.budget*0.5,st);c.mkt=roundTo(s.budget*0.1,st);c.price=roundTo(s.ref,priceStep(s));return c;}
+
+/* ================= HEADER ================= */
+function renderHeader(){
+  $('stStreak').textContent=liveStreak();$('stBest').textContent=S.best;$('stNet').textContent=fmt$(S.net);
+  $('stNet').className='font-display text-xl font-bold tabular '+(S.net<0?'text-rose-600':'text-emerald-700');
+  $('proBadge').classList.toggle('hide',!S.pro);$('btnMute').textContent=S.muted?'🔇':'🔊';
+}
+
+/* ================= HOME ================= */
+function modeBadge(c){
+  if(c.mode==='daily')return `<span class="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-[0_2px_0_#065f46]">Daily Challenge · Day #${c.day}</span>`;
+  if(c.mode==='retry')return `<span class="rounded-full bg-slate-700 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white">Unranked Retry · Day #${c.day}</span>`;
+  return `<span class="gold-shine rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-amber-900">Archive · Scenario ${c.day}</span>`;
+}
+function scenarioCard(c){
+  const s=c.scn,[sl,sc]=sensLabel(s);
+  return `<div class="card overflow-hidden">
+    <div class="relative bg-gradient-to-br from-emerald-500 to-emerald-700 px-5 pb-5 pt-4 text-white">
+      <div class="absolute -right-4 -top-6 text-[120px] opacity-15 select-none">${s.emoji}</div>
+      ${modeBadge(c)}
+      <div class="mt-3 flex items-center gap-3">
+        <div class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white text-4xl shadow-[0_4px_0_rgba(6,78,59,.5)]">${s.emoji}</div>
+        <div><h1 class="font-display text-2xl font-bold leading-tight">${s.title}</h1><div class="text-sm text-emerald-100">${s.place}</div></div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-1.5 text-xs font-semibold">
+        <span class="rounded-full bg-white/15 px-2.5 py-1">${s.weather}</span><span class="rounded-full bg-white/15 px-2.5 py-1">${s.market}</span>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-px bg-slate-100">
+      <div class="bg-white p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Starting Budget</div><div class="font-display text-2xl font-bold text-emerald-700">${fmt$(s.budget)}</div></div>
+      <div class="bg-white p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unit Cost</div><div class="font-display text-2xl font-bold">${fmtP(s,s.cost)}</div></div>
+      <div class="bg-white p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Foot Traffic</div><div class="font-display text-lg font-bold">~${s.traffic}/hr 🚶</div></div>
+      <div class="bg-white p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Fair Price · Sensitivity</div><div class="font-display text-lg font-bold">${fmtP(s,s.ref)} · <span class="${sc}">${sl}</span></div></div>
+    </div>
+    <div class="flex items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
+      <span>${s.salvage>0?`♻️ Leftovers resell at <b class="text-slate-700">${Math.round(s.salvage*100)}%</b> of cost`:`🗑️ <b class="text-slate-700">Perishable</b> — unsold stock is worth $0`}</span>
+      <span class="ml-auto shrink-0 whitespace-nowrap">⏰ ${s.curve} rush</span>
+    </div>
+    <div class="flex items-center gap-2 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800"><span class="text-base">⚡</span><span>Breaking news will hit at <b>4:00&nbsp;PM</b>. Could be good… or bad.</span></div>
+  </div>`;
+}
+function sliderRow(id,label,icon,color,min,max,step,val,valText,sub){
+  const p=((val-min)/(max-min)*100).toFixed(1);
+  return `<div class="mt-5">
+    <div class="mb-2 flex items-end justify-between"><label for="${id}" class="text-sm font-bold text-slate-600">${icon} ${label}</label><div id="${id}Val" class="font-display text-2xl font-bold tabular" style="color:${color}">${valText}</div></div>
+    <input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${val}" style="--p:${p}%;--c1:${color}">
+    <div id="${id}Sub" class="mt-1.5 text-xs text-slate-500">${sub}</div></div>`;
+}
+function renderHome(){
+  const c=ctx,s=c.scn;
+  // locked daily?
+  if(c.mode==='daily'&&S.history[c.idx]){renderLocked();return;}
+  const st=moneyStep(s),ps=priceStep(s),pMin=roundTo(Math.max(ps,s.cost*0.8),ps),pMax=roundTo(s.ref*3,ps);
+  $('screenHome').innerHTML=`${scenarioCard(c)}
+  <div class="card mt-4 p-5">
+    <div class="flex items-center justify-between"><h2 class="font-display text-xl font-bold text-emerald-900">Your game plan</h2><span class="text-xs font-semibold text-slate-400">3 decisions</span></div>
+    <div class="mt-3"><div id="allocBar" class="flex h-4 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200">
+      <div id="abInv" class="h-full bg-emerald-500 transition-all"></div><div id="abMkt" class="h-full bg-gold-400 transition-all"></div></div>
+      <div class="mt-1.5 flex justify-between text-[11px] font-semibold"><span class="text-emerald-600">■ Stock</span><span class="text-gold-600">■ Marketing</span><span id="abLeft" class="text-slate-400">Cash kept: $0</span></div></div>
+    ${sliderRow('slInv','Inventory Budget','📦','#059669',0,s.budget,st,c.inv,fmt$(c.inv),'')}
+    ${sliderRow('slPrice','Selling Price','🏷️','#0f766e',pMin,pMax,ps,c.price,fmtP(s,c.price),'')}
+    ${sliderRow('slMkt','Marketing Spend','📣','#d79a07',0,s.budget,st,c.mkt,fmt$(c.mkt),'')}
+    ${c.mode==='daily'?`<div class="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-500">🏁 Ranked run · one shot · counts for your streak & net worth</div>`:`<div class="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-500">🧪 Unranked · doesn't affect streak or net worth</div>`}
+    <button id="btnStart" class="btn3d btn-em mt-4 w-full rounded-2xl py-4 font-display text-xl font-bold">🏪 Open for Business!</button>
+    ${c.mode!=='daily'?`<button id="btnBackDaily" class="mt-3 w-full text-sm font-semibold text-emerald-700 underline decoration-dotted">← Back to today's challenge</button>`:''}
+  </div>
+  ${adSlot('ad-home')}`;
+  bindAdLinks();
+  const inv=$('slInv'),pr=$('slPrice'),mk=$('slMkt');
+  const upd=()=>{
+    const left=s.budget-c.inv-c.mkt,units=Math.floor(c.inv/s.cost+1e-9),margin=c.price-s.cost;
+    const setP=(el,v,mn,mx)=>el.style.setProperty('--p',((v-mn)/(mx-mn)*100)+'%');
+    setP(inv,c.inv,0,s.budget);setP(pr,c.price,pMin,pMax);setP(mk,c.mkt,0,s.budget);
+    $('slInvVal').textContent=fmt$(c.inv);$('slPriceVal').textContent=fmtP(s,c.price);$('slMktVal').textContent=fmt$(c.mkt);
+    $('slInvSub').innerHTML=`= <b class="text-slate-700">${units.toLocaleString()} units</b> in stock`;
+    const vs=c.price/s.ref;const tag=vs<0.85?'🤑 bargain':vs<1.1?'👍 fair':vs<1.4?'😬 pricey':'🚫 very pricey';
+    $('slPriceSub').innerHTML=`Margin <b class="${margin>0?'text-emerald-700':'text-rose-600'}">${fmtP(s,margin)}</b>/unit · ${tag}`;
+    const boost=Math.round(s.mk*(1-Math.exp(-c.mkt/(s.budget*0.12)))*100);
+    $('slMktSub').innerHTML=`≈ <b class="text-slate-700">+${boost}%</b> foot traffic`;
+    $('abInv').style.width=(c.inv/s.budget*100)+'%';$('abMkt').style.width=(c.mkt/s.budget*100)+'%';
+    $('abLeft').textContent='Cash kept: '+fmt$(left);
+  };
+  const capHit=()=>{const b=$('allocBar');b.classList.remove('cap-hit');void b.offsetWidth;b.classList.add('cap-hit');Sound.buzz();if(navigator.vibrate)navigator.vibrate(15);};
+  inv.oninput=()=>{let v=+inv.value;if(v+c.mkt>s.budget){v=s.budget-c.mkt;inv.value=v;capHit();}else Sound.tick();c.inv=v;upd();};
+  mk.oninput=()=>{let v=+mk.value;if(v+c.inv>s.budget){v=s.budget-c.inv;mk.value=v;capHit();}else Sound.tick();c.mkt=v;upd();};
+  pr.oninput=()=>{c.price=+pr.value;Sound.tick();upd();};
+  upd();
+  $('btnStart').onclick=()=>{Sound.init();Sound.click();if(Math.floor(c.inv/s.cost)<1){toast('📦 Buy at least 1 unit of stock!');return;}runSim();};
+  if($('btnBackDaily'))$('btnBackDaily').onclick=()=>{ctx=defaults4(dailyCtx());renderHome();show('screenHome');};
+}
+
+/* ================= AD SPACE ================= */
+// Drop your ad network tag (e.g. AdSense <ins>) into these slots. Pro users see no banner ads.
+function adSlot(id){
+  if(S.pro)return'';
+  return `<div class="mt-4">
+    <div class="mb-1 flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-widest text-slate-400"><span>Advertisement</span><button data-noads class="normal-case tracking-normal font-semibold text-gold-600 underline decoration-dotted">Remove ads 👑</button></div>
+    <div id="${id}" class="ad-slot mx-auto grid min-h-[100px] w-full place-items-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-300 bg-white/70 text-center text-xs text-slate-400">
+      <div><div class="text-2xl">📢</div><div class="font-semibold">Your ad here</div><div>320 × 100 banner</div></div>
+    </div></div>`;
+}
+function bindAdLinks(){document.querySelectorAll('[data-noads]').forEach(b=>b.onclick=openPro);}
+
+let cdTimer=null;
+function countdownText(){const ms=(todayIdx()+1)*DAY_MS-Date.now(),h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4),sec=Math.floor(ms%6e4/1e3);return[h,m,sec].map(x=>String(x).padStart(2,'0')).join(':');}
+function startCountdown(){
+  clearInterval(cdTimer);const born=todayIdx();
+  cdTimer=setInterval(()=>{document.querySelectorAll('[data-countdown]').forEach(e=>e.textContent=countdownText());
+    if(todayIdx()!==born){clearInterval(cdTimer);if(!$('screenSim').classList.contains('hide'))return;ctx=defaults4(dailyCtx());renderHeader();renderHome();show('screenHome');toast('🌅 A new daily challenge is live!');Sound.fanfare();}},1000);
+}
+function renderLocked(){
+  const c=ctx,s=c.scn,h=S.history[c.idx];
+  $('screenHome').innerHTML=`${scenarioCard(c)}
+  <div class="card mt-4 p-5 text-center">
+    <div class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-3xl">✅</div>
+    <div class="mt-2 font-display text-2xl font-bold text-emerald-900">Today's challenge complete</div>
+    <div class="mt-1 text-sm text-slate-500">You banked <b class="${h.profit>=0?'text-emerald-700':'text-rose-600'}">${signed$(h.profit)}</b> · ${'⭐'.repeat(h.stars)}${'☆'.repeat(5-h.stars)} · Top ${Math.max(1,Math.round(100-h.pct))}%</div>
+    <div class="mt-4 rounded-2xl bg-emerald-950 px-4 py-4 text-white">
+      <div class="text-[11px] font-bold uppercase tracking-[.2em] text-emerald-300">Next challenge in</div>
+      <div data-countdown class="font-display text-4xl font-bold tabular text-gold-300">${countdownText()}</div>
+      <div class="mt-1 text-xs text-emerald-200/80">Day #${c.day+1} · 🔥 keep your ${liveStreak()}-day streak alive</div>
+    </div>
+    <div class="mt-4 grid gap-3">
+      <button id="lkView" class="btn3d btn-em w-full rounded-2xl py-3.5 font-display text-lg font-bold">📊 View results & share</button>
+      ${retryButtonHTML()}
+      <button id="lkArch" class="btn3d btn-white w-full rounded-2xl py-3 font-display text-base font-bold">🗂️ Archive ${S.pro?'':'· Pro'}</button>
+    </div>
+  </div>
+  ${adSlot('ad-locked')}`;
+  bindAdLinks();
+  $('lkView').onclick=()=>{Sound.click();const r=simulate(s,h.inv,h.price,h.mkt,c.seed);ctx.inv=h.inv;ctx.price=h.price;ctx.mkt=h.mkt;renderResults(r,true);};
+  bindRetry();$('lkArch').onclick=openPro;startCountdown();
+}
+function retryButtonHTML(){
+  return S.pro?`<button data-retry class="btn3d btn-gold w-full rounded-2xl py-3.5 font-display text-lg font-bold">⚡ Instant Retry (Unranked) <span class="text-sm">👑</span></button>`
+  :`<button data-retry class="btn3d btn-gold w-full rounded-2xl py-3.5 font-display text-lg font-bold">📺 Watch Short Ad to Retry Today <span class="block text-xs font-semibold opacity-80">(Unranked)</span></button>`;
+}
+function bindRetry(){document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>{Sound.click();const go=()=>{ctx=defaults4(dailyCtx('retry'));const h=S.history[ctx.idx];if(h){ctx.inv=h.inv;ctx.price=h.price;ctx.mkt=h.mkt;}renderHome();show('screenHome');toast('🔁 Retry unlocked — tweak your plan!');};S.pro?go():openAd(go);});}
+
+/* ================= SIMULATION ================= */
+let simRAF=null;
+function runSim(){
+  const c=ctx,s=c.scn,r=simulate(s,c.inv,c.price,c.mkt,c.seed),rnd=mulberry32(c.seed^0x9e37);
+  const H=10000/12,events=[];
+  r.hours.forEach((h,i)=>{
+    const t0=i*H;
+    if(i===6)events.push({t:t0,type:'twist'});
+    if(h.bulk&&h.sold>0){const q=Math.min(h.bulk,h.sold);events.push({t:t0+H*.12,type:'buy',qty:q,text:`💼 BULK ORDER: ${q} units in one go!`,big:true});h._rest=h.sold-q;}else h._rest=h.sold;
+    let rest=h._rest;const chunks=rest>0?Math.min(3,rest):0;
+    for(let k=0;k<chunks;k++){const q=k===chunks-1?rest:Math.max(1,Math.round(rest/(chunks-k)*(0.7+rnd()*0.6)));const qq=Math.min(q,rest);rest-=qq;if(qq>0){
+      const who=['🧍','🙋','👩','👨','🧑‍🎓','👵','👨‍👩‍👧','🧔','💁','🕺'][Math.floor(rnd()*10)];
+      events.push({t:t0+H*(0.2+k*0.27),type:'buy',qty:qq,text:`${who} ${qq} ${qq===1?'customer':'customers'} bought · <b>+${fmtP(s,qq*c.price)}</b>`});}}
+    if(c.price>s.ref*(i>=6&&s.twist.ref?s.twist.ref:1)*1.15&&h.priced>0&&rnd()<.55)events.push({t:t0+H*.4,type:'meh',text:`🤨 ${h.priced} browsed — "too pricey!"`});
+    else if(c.mkt>s.budget*.05&&rnd()<.18)events.push({t:t0+H*.45,type:'meh',text:`📣 Your ads are pulling in a crowd`});
+    if(h.lost>0)events.push({t:t0+H*.9,type:'lost',qty:h.lost,text:`😩 ${h.lost} walked away — <b>SOLD OUT</b>`});
+  });
+  events.sort((a,b)=>a.t-b.t);
+  const tw=s.twist,pos=tw.type==='pos';
+  $('screenSim').innerHTML=`
+  <div class="card relative overflow-hidden p-5">
+    <div class="flex items-center justify-between">
+      <div><div class="text-[11px] font-bold uppercase tracking-widest text-slate-400">${s.title}</div><div id="simClock" class="font-display text-4xl font-bold tabular text-emerald-900">10:00 AM</div></div>
+      <div class="stall text-5xl">${s.emoji}</div>
+    </div>
+    <div class="relative mt-3 h-3 overflow-visible rounded-full bg-slate-100">
+      <div id="simBar" class="h-full w-0 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
+      <div class="absolute top-1/2 h-5 w-1 -translate-y-1/2 rounded bg-amber-500" style="left:50%"></div>
+      <div class="absolute -top-5 -translate-x-1/2 text-[10px] font-bold text-amber-600" style="left:50%">⚡4PM</div>
+    </div>
+    <div class="mt-1 flex justify-between text-[10px] font-semibold text-slate-400"><span>10 AM</span><span>10 PM</span></div>
+    <div id="revBox" class="relative mt-4 rounded-2xl bg-emerald-950 p-4 text-center">
+      <div class="text-[11px] font-bold uppercase tracking-[.2em] text-emerald-300">Revenue</div>
+      <div id="simRev" class="font-display text-5xl font-bold tabular text-gold-300">$0</div>
+    </div>
+    <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+      <div class="rounded-xl bg-slate-50 p-2"><div class="text-[10px] font-bold uppercase text-slate-400">Stock</div><div id="simStock" class="font-display text-xl font-bold tabular">${r.units}</div></div>
+      <div class="rounded-xl bg-emerald-50 p-2"><div class="text-[10px] font-bold uppercase text-emerald-600">Served</div><div id="simServed" class="font-display text-xl font-bold tabular text-emerald-700">0</div></div>
+      <div class="rounded-xl bg-rose-50 p-2"><div class="text-[10px] font-bold uppercase text-rose-500">Walked</div><div id="simLost" class="font-display text-xl font-bold tabular text-rose-600">0</div></div>
+    </div>
+    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div id="simStockBar" class="h-full w-full rounded-full bg-emerald-500 transition-all"></div></div>
+    <div id="twistBanner" class="hide absolute inset-x-3 top-3 z-10 rounded-2xl p-4 text-white shadow-2xl ${pos?'bg-gradient-to-br from-emerald-500 to-emerald-700':'bg-gradient-to-br from-rose-500 to-red-700'}">
+      <div class="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.2em]"><span class="animate-pulse rounded bg-white px-1.5 py-0.5 ${pos?'text-emerald-700':'text-rose-600'}">● Breaking</span> 4:00 PM</div>
+      <div class="mt-2 flex items-start gap-3"><div class="text-4xl">${tw.icon}</div><div><div class="font-display text-xl font-bold leading-tight">${tw.headline}</div><div class="mt-1 text-sm text-white/85">${tw.detail}</div></div></div>
+    </div>
+  </div>
+  <div class="card mt-4 p-4">
+    <div class="mb-2 flex items-center justify-between"><div class="text-sm font-bold text-slate-600">📟 Live feed</div><button id="btnSkip" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">Skip ⏩</button></div>
+    <div id="feed" class="space-y-1.5 text-sm" style="min-height:190px"></div>
+  </div>`;
+  show('screenSim');
+  let rev=0,served=0,walked=0,stock=r.units,ei=0,start=null,done=false,bannerHide=null;
+  const feed=$('feed');
+  const addFeed=(html,cls)=>{const d=document.createElement('div');d.className='feed-item rounded-xl px-3 py-2 '+cls;d.innerHTML=html;feed.prepend(d);while(feed.children.length>6)feed.lastChild.remove();};
+  const floatCoin=txt=>{const b=$('revBox'),f=document.createElement('div');f.className='float-coin text-gold-300 text-lg';f.style.left=(30+Math.random()*40)+'%';f.style.top='8%';f.textContent=txt;b.appendChild(f);setTimeout(()=>f.remove(),900);};
+  const fire=(e,quiet)=>{
+    if(e.type==='twist'){
+      if(r.spoiled){stock-=r.spoiled;}
+      if(!quiet){const b=$('twistBanner');b.classList.remove('hide');b.classList.add('banner-in');pos?Sound.alertGood():Sound.alertBad();if(navigator.vibrate)navigator.vibrate([40,40,40]);bannerHide=setTimeout(()=>b.classList.add('hide'),2300);}
+      addFeed(`<b>${tw.icon} BREAKING:</b> ${tw.headline}${r.spoiled?` <b>(−${r.spoiled} units)</b>`:''}${tw.cash?` <b>(${signed$(tw.cash)})</b>`:''}`,pos?'bg-emerald-100 text-emerald-900':'bg-rose-100 text-rose-900');
+    }else if(e.type==='buy'){rev+=e.qty*c.price;served+=e.qty;stock-=e.qty;addFeed(e.text,e.big?'bg-gold-100 text-amber-900 font-semibold':'bg-slate-50');if(!quiet){Sound.coin();floatCoin('+'+fmtP(s,e.qty*c.price));}}
+    else if(e.type==='lost'){walked+=e.qty;addFeed(e.text,'bg-rose-50 text-rose-700');if(!quiet)Sound.buzz();}
+    else addFeed(e.text,'bg-slate-50 text-slate-500');
+  };
+  const paint=(el)=>{const hf=Math.min(12,el/H);$('simClock').textContent=clockStr(10+hf);$('simBar').style.width=(hf/12*100)+'%';
+    $('simRev').textContent=fmt$(rev);$('simServed').textContent=served;$('simLost').textContent=walked;$('simStock').textContent=Math.max(0,stock);
+    const sb=$('simStockBar');sb.style.width=(r.units?Math.max(0,stock)/r.units*100:0)+'%';sb.className='h-full rounded-full transition-all '+(stock<=0?'bg-rose-500':stock<r.units*.25?'bg-amber-500':'bg-emerald-500');};
+  const finish=()=>{if(done)return;done=true;cancelAnimationFrame(simRAF);clearTimeout(bannerHide);
+    while(ei<events.length)fire(events[ei++],true);rev=r.revenue;served=r.sold;walked=r.lost;stock=r.leftover;paint(10000);
+    $('twistBanner').classList.add('hide');addFeed(`🔒 <b>10:00 PM</b> — closing time! ${r.leftover?`${r.leftover} units left.`:'Every unit sold.'}`,'bg-emerald-900 text-white');
+    Sound.register();setTimeout(()=>completeRun(r),900);};
+  const loop=ts=>{if(start===null)start=ts;const el=ts-start;while(ei<events.length&&events[ei].t<=el)fire(events[ei++]);paint(el);if(el>=10000)finish();else simRAF=requestAnimationFrame(loop);};
+  simRAF=requestAnimationFrame(loop);
+  $('btnSkip').onclick=finish;
+}
+
+/* ================= RESULTS ================= */
+function completeRun(r){
+  const c=ctx;
+  if(c.mode==='daily'&&!S.history[c.idx]){
+    const o=optimize(c.scn,c.seed),ratio=o.profit>0?r.profit/o.profit:(r.profit>=0?1:0),st=stars(ratio),pct=percentile(ratio,c.seed^Math.round(r.profit));
+    const d=c.idx;if(S.last===d-1)S.streak=(S.streak||0)+1;else if(S.last!==d)S.streak=1;S.last=d;S.best=Math.max(S.best,S.streak);
+    S.net=Math.round((S.net+r.profit)*100)/100;
+    S.history[d]={day:c.day,scn:c.scn.id,inv:c.inv,price:c.price,mkt:c.mkt,profit:Math.round(r.profit*100)/100,stars:st,pct,ratio};
+    // keep history small
+    const keys=Object.keys(S.history).map(Number).sort((a,b)=>b-a);keys.slice(60).forEach(k=>delete S.history[k]);
+    save();renderHeader();
+  }
+  renderResults(r,false);
+}
+function emojiGrid(r){
+  const v=h=>Math.max(0,h.sold-h.bulk)+h.lost,mx=Math.max(1,...r.hours.map(v));
+  const cell=h=>h.lost>0?'🟥':h.sold===0?'⬛':(h.bulk||v(h)/mx>=.66)?'🟩':v(h)/mx>=.33?'🟨':'🟧';
+  const cells=r.hours.map(cell);return cells.slice(0,6).join('')+'\n'+cells.slice(6).join('');
+}
+function shareText(r,meta){
+  const c=ctx,s=c.scn;
+  const head=c.mode==='archive'?`DAILY PROFIT 💰 Archive #${c.day}`:`DAILY PROFIT 💰 Day #${c.day}${c.mode==='retry'?' (retry)':''}`;
+  const lines=[head+(S.pro?' 👑VIP':''),`${s.emoji} ${s.title}`,`${r.profit>=0?'📈':'📉'} ${signed$(r.profit)} profit`,`${'⭐'.repeat(meta.st)}${'☆'.repeat(5-meta.st)} · Top ${Math.max(1,Math.round(100-meta.pct))}%`,emojiGrid(r),`${s.twist.icon} 4PM twist · 🔥 Streak ${liveStreak()}`];
+  if(/^https?:/.test(location.href))lines.push(location.href.split('#')[0]);
+  return lines.join('\n');
+}
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t);return true;}catch(e){
+    const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy');}catch(_){}ta.remove();return ok;}
+}
+function tipsFor(r,o,c){
+  const s=c.scn,tips=[];
+  if(r.soldOut&&r.soldOut<21.5&&r.lost>0)tips.push(`You sold out at <b>${clockStr(r.soldOut)}</b> and turned away <b>${r.lost}</b> customers — stock more or charge more.`);
+  if(r.units>0&&r.leftover>r.units*.2)tips.push(`<b>${r.leftover}</b> units were left over${s.salvage?` (resold for ${fmt$(r.salvage)})`:' and went in the bin'} — buy less or price lower.`);
+  if(c.price<o.price*.88)tips.push(`Customers would have paid more — the sweet spot was around <b>${fmtP(s,o.price)}</b>.`);
+  else if(c.price>o.price*1.12)tips.push(`Your price scared buyers off — around <b>${fmtP(s,o.price)}</b> converted far better.`);
+  if(o.mkt>s.budget*.04&&c.mkt<o.mkt*.5)tips.push(`Marketing was underpowered — ads paid for themselves today.`);
+  else if(c.mkt>o.mkt*1.6+s.budget*.05)tips.push(`Marketing overspend — returns flatten out fast.`);
+  if(s.twist.bulk&&c.price>s.ref*1.6)tips.push(`The investor skipped your overpriced drinks — the bulk order needed a price under ${fmtP(s,s.ref*1.6)}.`);
+  if(!tips.length)tips.push(s.twist.type==='pos'?`The 4 PM boom rewarded having stock in reserve. Nicely played.`:`You weathered the 4 PM shock well. Lean stock wins on bad-news days.`);
+  return tips.slice(0,2);
+}
+function renderResults(r,fromLocked){
+  const c=ctx,s=c.scn,o=optimize(s,c.seed);
+  const ratio=o.profit>0?r.profit/o.profit:(r.profit>=0?1:0),st=stars(ratio);
+  const ranked=c.mode==='daily';const h=ranked?S.history[c.idx]:null;
+  const pct=h?h.pct:percentile(ratio,c.seed^Math.round(r.profit));
+  const meta={st,pct};const top=Math.max(1,Math.round(100-pct));
+  const mx=Math.max(1,...r.hours.map(x=>x.sold+x.lost));
+  const bars=r.hours.map((x,i)=>`<div class="flex flex-1 flex-col items-center gap-1"><div class="flex h-20 w-full flex-col-reverse overflow-hidden rounded-md bg-slate-100">
+      <div class="bg-emerald-500" style="height:${x.sold/mx*100}%"></div><div class="bg-rose-400" style="height:${x.lost/mx*100}%"></div></div>
+      <div class="text-[9px] font-bold ${i===6?'text-amber-600':'text-slate-400'}">${i===6?'⚡':((i+9)%12+1)}</div></div>`).join('');
+  const row=(k,you,best)=>`<tr class="border-t border-slate-100"><td class="py-2 text-slate-500">${k}</td><td class="py-2 text-right font-semibold tabular">${you}</td><td class="py-2 text-right font-bold tabular text-emerald-700">${best}</td></tr>`;
+  const share=shareText(r,meta);
+  const badge=ranked?`<span class="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white">Ranked · Day #${c.day}</span>`:`<span class="rounded-full bg-slate-700 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white">Unranked · ${c.mode==='archive'?'Archive #'+c.day:'Retry Day #'+c.day}</span>`;
+  const rankedNote=(!ranked&&c.mode==='retry'&&S.history[c.idx])?`<div class="mt-2 text-xs text-slate-500">Your ranked score today: <b>${signed$(S.history[c.idx].profit)}</b></div>`:'';
+  $('screenResults').innerHTML=`
+  <div class="card overflow-hidden text-center">
+    <div class="bg-gradient-to-b ${r.profit>=0?'from-emerald-500 to-emerald-700':'from-rose-500 to-rose-700'} px-5 pb-6 pt-4 text-white">
+      ${badge}
+      <div class="mt-3 text-sm font-semibold text-white/80">${s.emoji} ${s.title}</div>
+      <div class="text-[11px] font-bold uppercase tracking-[.2em] text-white/70 mt-3">Net ${r.profit>=0?'Profit':'Loss'}</div>
+      <div id="resProfit" class="font-display text-6xl font-bold tabular drop-shadow">$0</div>
+      <div id="resStars" class="mt-2 flex justify-center gap-1 text-4xl">${[0,1,2,3,4].map(i=>`<span data-star="${i}" class="opacity-25 grayscale">⭐</span>`).join('')}</div>
+      <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-bold">🌍 Top ${top}% <span class="font-normal text-white/80">· beat ${Math.round(pct)}% of players</span></div>
+      ${rankedNote}
+    </div>
+    <div class="grid grid-cols-3 gap-px bg-slate-100 text-left">
+      ${[['Revenue',fmt$(r.revenue)],['Units sold',`${r.sold}/${r.units}`],['Sold out',r.soldOut?clockStr(r.soldOut):'—'],['Stock cost',fmt$(r.spend)],['Marketing',fmt$(r.mkt)],['Walked away',r.lost],['Leftovers',`${r.leftover}${r.salvage?` (+${fmt$(r.salvage)})`:''}`],['Twist',`${s.twist.icon} ${s.twist.type==='pos'?'Boost':'Hit'}`],['Your price',fmtP(s,c.price)]].map(([k,v])=>`<div class="bg-white p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${k}</div><div class="font-display text-base font-bold tabular">${v}</div></div>`).join('')}
+    </div>
+  </div>
+
+  <div class="card mt-4 p-5">
+    <div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold text-emerald-900">Hour by hour</h3><div class="text-[11px] font-semibold"><span class="text-emerald-600">■ sold</span> <span class="text-rose-500">■ missed</span></div></div>
+    <div class="mt-3 flex items-end gap-1">${bars}</div>
+  </div>
+
+  <div class="card mt-4 overflow-hidden">
+    <button id="btnReveal" class="flex w-full items-center gap-3 p-5 text-left">
+      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-2xl">🧠</div>
+      <div class="flex-1"><div class="font-display text-lg font-bold text-emerald-900">The perfect strategy</div><div id="revealSub" class="text-xs text-slate-500">Tap to see how the best possible run was played</div></div>
+      <div id="revealChev" class="grid h-9 w-9 place-items-center rounded-full bg-emerald-600 text-white shadow-[0_3px_0_#065f46] transition-transform">▾</div>
+    </button>
+    <div id="revealBody" class="hide border-t border-slate-100 px-5 pb-5 pt-3">
+      <div class="flex items-center justify-between text-sm"><span class="text-slate-500">You captured</span><span class="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">${Math.round(Math.max(0,ratio)*100)}% of max profit</span></div>
+    <table class="mt-2 w-full text-sm"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="text-left font-bold">Decision</th><th class="text-right font-bold">You</th><th class="text-right font-bold">Optimal</th></tr></thead><tbody>
+      ${row('📦 Inventory',`${fmt$(c.inv)} <span class="text-xs text-slate-400">(${r.units})</span>`,`${fmt$(o.inv)} <span class="text-xs text-slate-400">(${o.res.units})</span>`)}
+      ${row('🏷️ Price',fmtP(s,c.price),fmtP(s,o.price))}
+      ${row('📣 Marketing',fmt$(c.mkt),fmt$(o.mkt))}
+      ${row('💰 Profit',signed$(r.profit),signed$(o.profit))}
+    </tbody></table>
+    <div class="mt-3 space-y-2">${tipsFor(r,o,c).map(t=>`<div class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">💡 ${t}</div>`).join('')}</div>
+    </div>
+  </div>
+${adSlot('ad-results')}
+
+  <div class="card mt-4 p-5">
+    <h3 class="font-display text-lg font-bold text-emerald-900">Share your score</h3>
+    <div class="relative mt-3 overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 p-4 text-white ${S.pro?'ring-4 ring-gold-400':''}">
+      ${S.pro?'<div class="gold-shine absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-extrabold text-amber-900">👑 VIP</div>':''}
+      <pre class="whitespace-pre-wrap font-sans text-[15px] leading-relaxed">${share.replace(/</g,'&lt;')}</pre>
+    </div>
+    <button id="btnShare" class="btn3d btn-em mt-4 w-full rounded-2xl py-3.5 font-display text-lg font-bold">📋 Share Score</button>
+  </div>
+
+  <div class="card mt-4 p-5">
+    ${ranked||c.mode==='retry'?`<div class="mb-4 rounded-2xl bg-emerald-950 px-4 py-3 text-center text-white"><div class="text-[11px] font-bold uppercase tracking-[.2em] text-emerald-300">Next daily challenge</div><div data-countdown class="font-display text-3xl font-bold tabular text-gold-300">${countdownText()}</div></div>`:''}
+    <div class="grid gap-3">
+      ${c.mode!=='archive'?retryButtonHTML():`<button id="btnReplayArch" class="btn3d btn-gold w-full rounded-2xl py-3.5 font-display text-lg font-bold">🔁 Replay this scenario</button>`}
+      <button id="btnResArch" class="btn3d btn-white w-full rounded-2xl py-3 font-display text-base font-bold">🗂️ ${S.pro?'Open Archive':'Archive & Pro Pass 👑'}</button>
+      <button id="btnResHome" class="w-full text-sm font-semibold text-emerald-700 underline decoration-dotted">← Back to today</button>
+    </div>
+  </div>`;
+  show('screenResults');
+  // animations
+  const el=$('resProfit'),t0=performance.now(),dur=1100;
+  const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=signed$(r.profit*e);if(k<1)requestAnimationFrame(step);};requestAnimationFrame(step);
+  if(!fromLocked){if(r.profit<0)setTimeout(()=>Sound.fail(),300);}
+  for(let i=0;i<st;i++)setTimeout(()=>{const x=document.querySelector(`[data-star="${i}"]`);if(x){x.classList.remove('opacity-25','grayscale');x.classList.add('pop');}Sound.star(i);},1150+i*220);
+  if(st>=4&&!fromLocked)setTimeout(()=>{confetti(st===5?80:45);Sound.fanfare();},1150+st*220);
+  $('btnShare').onclick=async()=>{Sound.click();const ok=await copyText(share);toast(ok?'📋 Copied! Paste it anywhere':'Copy failed — long-press the card to copy');};
+  $('btnReveal').onclick=()=>{Sound.click();const b=$('revealBody'),open=b.classList.toggle('hide')===false;$('revealChev').style.transform=open?'rotate(180deg)':'';$('revealSub').textContent=open?'Tap to hide':'Tap to see how the best possible run was played';if(open)b.querySelector('table').classList.add('pop');};
+  bindAdLinks();bindRetry();
+  if($('btnReplayArch'))$('btnReplayArch').onclick=()=>{Sound.click();renderHome();show('screenHome');};
+  $('btnResArch').onclick=openPro;
+  $('btnResHome').onclick=()=>{ctx=defaults4(dailyCtx());renderHome();show('screenHome');};
+  startCountdown();
+}
+
+/* ================= AD MODAL ================= */
+let adInt=null;
+function openAd(onReward){
+  const m=$('modalAd'),btn=$('adClaim');m.classList.remove('hide');btn.disabled=true;let left=5;
+  const tick=()=>{$('adTimer').textContent=left>0?left+'s':'✓';$('adBar').style.width=((5-left)/5*100)+'%';btn.textContent=left>0?`Reward in ${left}…`:'🎁 Claim Retry';};
+  tick();clearInterval(adInt);
+  adInt=setInterval(()=>{left--;tick();if(left<=0){clearInterval(adInt);btn.disabled=false;Sound.coin();}},1000);
+  btn.onclick=()=>{m.classList.add('hide');Sound.register();onReward();};
+}
+
+/* ================= PROMO CODES =================
+   Change these to your own secret codes. Case doesn't matter.
+   'pro_on'  → unlocks Pro for free on this device
+   'pro_off' → switches Pro off again (back to the free version)
+   Note: codes in this file are visible to anyone who reads the page source. */
+const PROMO_CODES={
+  'VUGIEPRO':'pro_on',
+  'FREEMODE':'pro_off'
+};
+function setPro(on){
+  S.pro=on;save();renderHeader();renderPro();
+  if(!$('screenHome').classList.contains('hide'))renderHome();
+  else if(!$('screenResults').classList.contains('hide')){document.querySelectorAll('.ad-slot').forEach(a=>a.parentElement.remove());document.querySelectorAll('[data-retry]').forEach(b=>b.outerHTML=retryButtonHTML());bindRetry();}
+}
+function applyPromo(raw){
+  const code=raw.trim().toUpperCase().replace(/\s+/g,''),act=PROMO_CODES[code],msg=$('promoMsg');
+  if(!code){msg.textContent='';return;}
+  if(!act){msg.className='mt-1.5 text-xs font-semibold text-rose-600';msg.textContent='❌ That code isn\'t valid.';Sound.buzz();const f=$('promoForm');f.classList.remove('cap-hit');void f.offsetWidth;f.classList.add('cap-hit');return;}
+  if(act==='pro_on'){
+    if(S.pro){msg.className='mt-1.5 text-xs font-semibold text-slate-500';msg.textContent='👑 Pro is already active.';return;}
+    setPro(true);msg.className='mt-1.5 text-xs font-semibold text-emerald-700';msg.textContent='✅ Pro unlocked!';Sound.register();setTimeout(()=>Sound.fanfare(),250);confetti(60,true);
+  }else if(act==='pro_off'){
+    if(!S.pro){msg.className='mt-1.5 text-xs font-semibold text-slate-500';msg.textContent='Pro is already off.';return;}
+    setPro(false);msg.className='mt-1.5 text-xs font-semibold text-slate-600';msg.textContent='🔓 Pro switched off — back to the free version.';Sound.click();
+  }
+  $('promoInput').value='';
+}
+$('promoToggle').onclick=()=>{Sound.click();$('promoForm').classList.toggle('hide');$('promoMsg').textContent='';if(!$('promoForm').classList.contains('hide'))$('promoInput').focus();};
+$('promoForm').onsubmit=e=>{e.preventDefault();applyPromo($('promoInput').value);};
+
+/* ================= PRO / ARCHIVE ================= */
+function renderPro(){
+  $('proCta').classList.toggle('hide',S.pro);$('proOwned').classList.toggle('hide',!S.pro);
+  const played=new Set(Object.values(S.history).map(h=>h.scn));
+  $('archiveGrid').innerHTML=SCENARIOS.map(s=>`<button data-arch="${s.id}" class="btn3d relative overflow-hidden rounded-2xl border-2 p-2 pt-3 text-center ${S.pro?'border-emerald-100 bg-white shadow-[0_3px_0_#d1fae5]':'border-slate-100 bg-slate-50'}">
+    <div class="text-[10px] font-bold uppercase tracking-wider ${S.pro?'text-emerald-600':'text-slate-400'}">Day ${s.id}</div>
+    <div class="text-3xl ${S.pro?'':'opacity-40 blur-[1px]'}">${s.emoji}</div>
+    <div class="mt-1 line-clamp-2 text-[11px] font-semibold leading-tight ${S.pro?'text-slate-700':'text-slate-400'}">${s.title}</div>
+    ${S.pro?(played.has(s.id)?'<div class="absolute right-1.5 top-1.5 text-[10px]">✅</div>':''):'<div class="absolute inset-0 grid place-items-center"><span class="rounded-full bg-white/90 px-2 py-1 text-sm shadow">🔒</span></div>'}
+  </button>`).join('');
+  document.querySelectorAll('[data-arch]').forEach(b=>b.onclick=()=>{
+    if(!S.pro){Sound.buzz();b.classList.remove('cap-hit');void b.offsetWidth;b.classList.add('cap-hit');const cta=$('btnUnlockPro');cta.scrollIntoView({behavior:'smooth',block:'center'});toast('🔒 Unlock Pro to play the archive');return;}
+    Sound.click();ctx=defaults4(archiveCtx(+b.dataset.arch));closeModal('modalPro');renderHome();show('screenHome');
+  });
+}
+function openPro(){Sound.click();renderPro();$('modalPro').classList.remove('hide');}
+function closeModal(id){$(id).classList.add('hide');}
+$('btnUnlockPro').onclick=()=>{Sound.click();$('coBody').classList.remove('hide');$('coProcessing').classList.add('hide');$('coDone').classList.add('hide');$('modalCheckout').classList.remove('hide');};
+$('btnPay').onclick=()=>{Sound.click();$('coBody').classList.add('hide');$('coProcessing').classList.remove('hide');
+  setTimeout(()=>{S.pro=true;save();$('coProcessing').classList.add('hide');$('coDone').classList.remove('hide');Sound.register();setTimeout(()=>Sound.fanfare(),300);confetti(70,true);renderHeader();renderPro();
+    document.querySelectorAll('.ad-slot').forEach(a=>a.parentElement.remove());if(!$('screenHome').classList.contains('hide'))renderHome();else if(!$('screenResults').classList.contains('hide')){document.querySelectorAll('[data-retry]').forEach(b=>b.outerHTML=retryButtonHTML());bindRetry();}},1600);};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{Sound.click();closeModal(b.dataset.close);});
+['modalPro','modalHelp','modalCheckout'].forEach(id=>$(id).addEventListener('click',e=>{if(e.target.id===id)closeModal(id);}));
+
+/* ================= HEADER BUTTONS ================= */
+$('btnMute').onclick=()=>{S.muted=!S.muted;Sound.muted=S.muted;save();renderHeader();if(!S.muted){Sound.init();Sound.coin();}};
+$('btnHelp').onclick=()=>{Sound.click();$('modalHelp').classList.remove('hide');};
+$('btnArchive').onclick=openPro;
+let resetArm=false;
+$('btnReset').onclick=()=>{if(!resetArm){resetArm=true;$('btnReset').textContent='Tap again to wipe streak, net worth & Pro';setTimeout(()=>{resetArm=false;$('btnReset').textContent='Reset demo data';},3000);return;}
+  try{localStorage.removeItem(KEY);}catch(e){}S={...defaults};Sound.muted=false;ctx=defaults4(dailyCtx());renderHeader();renderHome();show('screenHome');toast('🧹 Demo data reset');resetArm=false;$('btnReset').textContent='Reset demo data';};
+
+/* ================= BOOT ================= */
+ctx=defaults4(dailyCtx());
+{const h=S.history[ctx.idx];if(h){ctx.inv=h.inv;ctx.price=h.price;ctx.mkt=h.mkt;}}
+renderHeader();renderHome();startCountdown();
+if(!S.last&&!Object.keys(S.history).length)setTimeout(()=>$('modalHelp').classList.remove('hide'),400);
+
+</script>
+</body>
+</html>
