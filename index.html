@@ -190,8 +190,9 @@ if(window.tailwind)tailwind.config={theme:{extend:{
     <ol class="mt-3 space-y-3 text-sm text-slate-600">
       <li><b class="text-emerald-800">1 · Read the market.</b> Every day, every player gets the same business, budget and conditions.</li>
       <li><b class="text-emerald-800">2 · Make 3 calls.</b> How much stock to buy, what to charge, and how much to spend on marketing. Stock + marketing can't exceed your budget.</li>
-      <li><b class="text-emerald-800">3 · Survive the twist.</b> Breaking news hits at 4:00 PM — good or bad. Plan for it.</li>
-      <li><b class="text-emerald-800">4 · Bank the profit.</b> One ranked run per day. Keep your streak alive and grow your net worth.</li>
+      <li><b class="text-emerald-800">3 · Make the 1 PM call.</b> The clock pauses for a surprise decision — say yes or no.</li>
+      <li><b class="text-emerald-800">4 · Survive the twist.</b> Breaking news hits at 4:00 PM — good or bad. Plan for it.</li>
+      <li><b class="text-emerald-800">5 · Climb the leaderboard.</b> One ranked run per day. Compare with other players, keep your streak alive and share your card.</li>
     </ol>
     <div class="mt-4 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800">💡 Sold out early = too little stock or too cheap. Leftovers = too much stock or too pricey. Perishables are worth $0 at close.</div>
     <button data-close="modalHelp" class="btn3d btn-em mt-4 w-full rounded-2xl py-3 font-display text-lg font-bold">Got it</button>
@@ -263,35 +264,73 @@ const SCENARIOS=[
  {"id":30,"emoji":"🚴","title":"Tour Stage Finish-Line Caps","place":"Final kilometre barriers","weather":"☀️ 26°C","market":"🚲 Cycling fanatics","budget":1800,"cost":5,"ref":18,"traffic":33,"sens":1.5,"mk":0.7,"salvage":0.5,"curve":"afternoon","twist":{"type":"pos","icon":"🏁","headline":"Local hero wins the stage in a sprint!","detail":"The crowd goes wild. Everyone wants a cap.","traffic":2,"ref":1.2}}
 ];
 
+/* ================= 1 PM DECISION EVENTS =================
+   One event per day, picked from the day's seed — every player gets the same one. */
+const EV_HOUR=3; // 1:00 PM
+const EVENTS=[
+ {id:'blogger',icon:'📸',title:'A food blogger wants free samples',detail:'She asks for {n} free units to show her followers. Her post would bring extra customers this afternoon.',a:{label:'Hand them out',short:'Gave samples',give:0.15,boost:1.13,from:4}},
+ {id:'supplier',icon:'🚚',title:'Supplier offers an emergency restock',detail:'Up to {n} extra units at {c} each (40% markup), paid from the cash you kept.',a:{label:'Buy the restock',short:'Restocked',restock:0.35,costMult:1.4}},
+ {id:'bulk',icon:'🧾',title:'Office manager wants a bulk deal',detail:'She\'ll buy {n} units right now at 40% off. Word of the discount might make other customers haggle.',a:{label:'Accept the deal',short:'Took bulk deal',bulkSale:0.2,priceMult:0.6,refAfter:0.85}},
+ {id:'musician',icon:'🎷',title:'Street musician offers to play at your stall',detail:'He wants {cost} to play all afternoon and draw a crowd.',a:{label:'Pay the musician',short:'Hired musician',cost:0.1,boost:1.14,from:3,to:8}},
+ {id:'clouds',icon:'⛺',title:'Dark clouds roll in',detail:'A pop-up canopy costs {cost}. Without one, a downpour could scare customers off for a few hours.',a:{label:'Rent the canopy',short:'Rented canopy',cost:0.1},b:{label:'Risk it',short:'Risked the rain',risk:0.5,dip:0.55,from:3,to:6}},
+ {id:'flash',icon:'⚡',title:'Run a lunchtime flash sale?',detail:'Drop your price 25% for the next hour to pull in a crowd.',a:{label:'Flash sale!',short:'Ran flash sale',flash:0.75,boostHour:1.12}},
+ {id:'influencer',icon:'🤳',title:'Local influencer wants a paid shout-out',detail:'{cost} for a story that goes live at 3 PM.',a:{label:'Pay for the post',short:'Paid influencer',cost:0.12,boost:1.2,from:5}},
+ {id:'permit',icon:'👮',title:'An officer questions your permit',detail:'Pay a {cost} late fee now — or argue it and close for an hour.',a:{label:'Pay the fee',short:'Paid the fee',cost:0.09},b:{label:'Argue it',short:'Argued it',closedHour:true}}
+];
+const DEFAULT_B={label:'No thanks',short:'Declined'};
+const evOpt=(ev,ch)=>ch==='a'?ev.a:(ev.b||DEFAULT_B);
+function eventFor(seed){return EVENTS[Math.floor(mulberry32(seed^0x51ED)()*EVENTS.length)];}
+function eventText(s,ev,units,cashKept){
+  const a=ev.a,cu=s.cost*(a.costMult||1);
+  const n=a.give?Math.ceil(units*a.give):a.bulkSale?Math.floor(units*a.bulkSale):a.restock?Math.max(0,Math.min(Math.floor(units*a.restock),Math.floor(cashKept/cu))):0;
+  return ev.detail.replace('{n}',n).replace('{cost}',fmt$(Math.round(s.budget*(a.cost||0)))).replace('{c}',fmtP(s,cu));
+}
+
 /* ================= ENGINE ================= */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
-function simulate(s,inv,price,mkt,seed){
-  const rnd=mulberry32(seed);const units=Math.floor(inv/s.cost+1e-9);let stock=units,carry=0,revenue=0,sold=0,lost=0,soldOut=null,bonus=0,spoiled=0;
+function simulate(s,inv,price,mkt,seed,choice='b'){
+  const rnd=mulberry32(seed),ev=eventFor(seed),eff=evOpt(ev,choice);
+  const units=Math.floor(inv/s.cost+1e-9),spend=units*s.cost,cashKept=s.budget-spend-mkt;
+  let stock=units,carry=0,revenue=0,sold=0,lost=0,soldOut=null,bonus=0,spoiled=0,extra=0,given=0,restocked=0,evSold=0;
+  const rains=eff.risk?mulberry32(seed^0xBEEF)()<eff.risk:false;
   const boost=1+s.mk*(1-Math.exp(-mkt/(s.budget*0.12)));const c=CURVES[s.curve];const hours=[];
   for(let i=0;i<12;i++){
     const tw=i>=6?s.twist:{};const noise=0.88+rnd()*0.24;
     if(i===6){if(tw.stockLoss){spoiled=Math.floor(stock*tw.stockLoss);stock-=spoiled;}if(tw.cash)bonus+=tw.cash;}
-    const visitors=s.traffic*c[i]*boost*noise*(tw.traffic||1);const ref=s.ref*(tw.ref||1);
-    const conv=Math.min(0.92,BASE_CONV*Math.pow(ref/price,s.sens));
+    let p=price,tm=tw.traffic||1,hEv=0;
+    if(i===EV_HOUR){
+      if(eff.give){given=Math.min(stock,Math.ceil(units*eff.give));stock-=given;}
+      if(eff.restock){const cu=s.cost*eff.costMult;restocked=Math.max(0,Math.min(Math.floor(units*eff.restock),Math.floor(cashKept/cu)));stock+=restocked;extra+=restocked*cu;}
+      if(eff.bulkSale){hEv=evSold=Math.min(stock,Math.floor(units*eff.bulkSale));stock-=evSold;revenue+=evSold*price*eff.priceMult;sold+=evSold;}
+      if(eff.cost)extra+=Math.round(s.budget*eff.cost);
+      if(eff.flash){p=price*eff.flash;tm*=eff.boostHour;}
+      if(stock===0&&units>0&&soldOut===null)soldOut=10+i;
+    }
+    if(eff.boost&&i>=eff.from&&i<=(eff.to??11))tm*=eff.boost;
+    if(rains&&i>=eff.from&&i<=eff.to)tm*=eff.dip;
+    const closed=!!(eff.closedHour&&i===EV_HOUR);
+    const visitors=closed?0:s.traffic*c[i]*boost*noise*tm;const ref=s.ref*(tw.ref||1)*(eff.refAfter&&i>EV_HOUR?eff.refAfter:1);
+    const conv=Math.min(0.92,BASE_CONV*Math.pow(ref/p,s.sens));
     const want=visitors*conv+carry;let buyers=Math.floor(want);carry=want-buyers;let bulk=0;
     if(i===6&&tw.bulk&&price<=s.ref*1.6){bulk=tw.bulk;buyers+=bulk;}
     const sd=Math.min(buyers,stock);const had=stock;stock-=sd;const ls=buyers-sd;
     if(stock===0&&had>0&&soldOut===null)soldOut=10+i+(buyers>0?sd/buyers:1);
-    revenue+=sd*price;sold+=sd;lost+=ls;
-    hours.push({visitors:Math.round(visitors),buyers,sold:sd,lost:ls,rev:sd*price,stock,priced:Math.max(0,Math.round(visitors*(1-conv))),bulk});
+    revenue+=sd*p;sold+=sd;lost+=ls;
+    hours.push({visitors:Math.round(visitors),buyers,sold:sd,lost:ls,rev:sd*p,price:p,stock,priced:Math.max(0,Math.round(visitors*(1-conv))),bulk,evSold:hEv,closed});
   }
-  const salvage=stock*s.cost*s.salvage,spend=units*s.cost;
-  return{units,hours,revenue,sold,lost,leftover:stock,salvage,spend,mkt,bonus,spoiled,soldOut,profit:revenue+salvage+bonus-spend-mkt};
+  const salvage=stock*s.cost*s.salvage;
+  return{units,hours,revenue,sold,lost,leftover:stock,salvage,spend,mkt,bonus,spoiled,soldOut,extra,given,restocked,evSold,rains,ev,choice,
+    profit:revenue+salvage+bonus-spend-mkt-extra};
 }
 const optCache={};
 function optimize(s,seed){
   const key=s.id+':'+seed;if(optCache[key])return optCache[key];
-  const B=s.budget,N=24,pMin=s.cost*0.8,pMax=s.ref*3;let best=null;
-  const test=(inv,p,mkt)=>{if(inv<0||mkt<0||inv+mkt>B+1e-6||p<=0)return;const r=simulate(s,inv,p,mkt,seed);if(!best||r.profit>best.profit)best={inv,price:p,mkt,profit:r.profit,res:r};};
-  for(let a=0;a<=N;a++)for(let b=0;a+b<=N;b++)for(let k=0;k<=48;k++)test(B*a/N,pMin+(pMax-pMin)*k/48,B*b/N);
-  const dI=B/N,dP=(pMax-pMin)/48,b0={...best};
-  for(let a=-4;a<=4;a++)for(let b=-4;b<=4;b++)for(let k=-10;k<=10;k++)test(b0.inv+a*dI/4,b0.price+k*dP/10,b0.mkt+b*dI/4);
+  const B=s.budget,N=20,pMin=s.cost*0.8,pMax=s.ref*3;let best=null;
+  const test=(inv,p,mkt,ch)=>{if(inv<0||mkt<0||inv+mkt>B+1e-6||p<=0)return;const r=simulate(s,inv,p,mkt,seed,ch);if(!best||r.profit>best.profit)best={inv,price:p,mkt,choice:ch,profit:r.profit,res:r};};
+  for(const ch of['a','b'])for(let a=0;a<=N;a++)for(let b=0;a+b<=N;b++)for(let k=0;k<=40;k++)test(B*a/N,pMin+(pMax-pMin)*k/40,B*b/N,ch);
+  const dI=B/N,dP=(pMax-pMin)/40,b0={...best};
+  for(let a=-4;a<=4;a++)for(let b=-4;b<=4;b++)for(let k=-10;k<=10;k++)test(b0.inv+a*dI/4,b0.price+k*dP/10,b0.mkt+b*dI/4,b0.choice);
   return optCache[key]=best;
 }
 
@@ -373,7 +412,7 @@ function scenarioCard(c){
       <span>${s.salvage>0?`♻️ Leftovers resell at <b class="text-slate-700">${Math.round(s.salvage*100)}%</b> of cost`:`🗑️ <b class="text-slate-700">Perishable</b> — unsold stock is worth $0`}</span>
       <span class="ml-auto shrink-0 whitespace-nowrap">⏰ ${s.curve} rush</span>
     </div>
-    <div class="flex items-center gap-2 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800"><span class="text-base">⚡</span><span>Breaking news will hit at <b>4:00&nbsp;PM</b>. Could be good… or bad.</span></div>
+    <div class="flex items-center gap-2 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-800"><span class="text-base">🎲</span><span>You'll make a call at <b>1:00&nbsp;PM</b>, and breaking news hits at <b>4:00&nbsp;PM</b>.</span></div>
   </div>`;
 }
 function sliderRow(id,label,icon,color,min,max,step,val,valText,sub){
@@ -465,7 +504,7 @@ function renderLocked(){
   </div>
   ${adSlot('ad-locked')}`;
   bindAdLinks();
-  $('lkView').onclick=()=>{Sound.click();const r=simulate(s,h.inv,h.price,h.mkt,c.seed);ctx.inv=h.inv;ctx.price=h.price;ctx.mkt=h.mkt;renderResults(r,true);};
+  $('lkView').onclick=()=>{Sound.click();const r=simulate(s,h.inv,h.price,h.mkt,c.seed,h.choice||'b');ctx.inv=h.inv;ctx.price=h.price;ctx.mkt=h.mkt;renderResults(r,true);};
   bindRetry();$('lkArch').onclick=openPro;startCountdown();
 }
 function retryButtonHTML(){
@@ -474,33 +513,106 @@ function retryButtonHTML(){
 }
 function bindRetry(){document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>{Sound.click();const go=()=>{ctx=defaults4(dailyCtx('retry'));const h=S.history[ctx.idx];if(h){ctx.inv=h.inv;ctx.price=h.price;ctx.mkt=h.mkt;}renderHome();show('screenHome');toast('🔁 Retry unlocked — tweak your plan!');};S.pro?go():openAd(go);});}
 
+/* ================= LEADERBOARD (Supabase) =================
+   Leave these empty to run in DEMO mode (simulated players, clearly labelled).
+   To go live: create a free Supabase project, run supabase/setup.sql, then paste
+   your Project URL and anon public key below (Supabase → Project Settings → API). */
+const LEADERBOARD={url:'',anonKey:''};
+const LB_LIVE=()=>!!(LEADERBOARD.url&&LEADERBOARD.anonKey);
+function uuid4(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,ch=>{const r=Math.random()*16|0;return(ch==='x'?r:(r&3|8)).toString(16);});}
+if(!S.pid){S.pid=uuid4();save();}
+const lbCache={};
+const lbBase=()=>LEADERBOARD.url.replace(/\/+$/,'');
+const lbHeaders=()=>({'apikey':LEADERBOARD.anonKey,'Authorization':'Bearer '+LEADERBOARD.anonKey,'Content-Type':'application/json'});
+const cleanName=v=>(v||'').replace(/[^\p{L}\p{N} _.\-]/gu,'').trim().slice(0,16);
+function dayCtx(day){const scn=scenarioForDay(day),seed=hashStr('daily-'+dateKey(LAUNCH_DAY+day-1));return{scn,seed};}
+async function lbSubmit(day){
+  const h=Object.values(S.history).find(x=>x.day===day);
+  if(!LB_LIVE()||!S.name||!h)return false;
+  if(S.submitted&&S.submitted[day])return true;
+  try{
+    const res=await fetch(lbBase()+'/rest/v1/runs',{method:'POST',headers:{...lbHeaders(),'Prefer':'return=minimal'},
+      body:JSON.stringify({day,player_id:S.pid,name:S.name,scenario:h.scn,profit:h.profit,stars:h.stars,inv:h.inv,price:h.price,mkt:h.mkt,choice:h.choice||'b'})});
+    if(res.ok||res.status===409){S.submitted=S.submitted||{};S.submitted[day]=1;save();delete lbCache[day];return true;}
+  }catch(e){}
+  return false;
+}
+const DEMO_NAMES=['TycoonTess','CashCowCarl','LemonLars','ProfitPia','MarginMo','StockSam','HustleHana','DealDaan','BizBram','CoinKim','SaleSofie','MintMilan','RushRuby','GrindGijs','PennyPim','DollarDewi','TradeTom','FlipFenna','VaultVik','BoomBo','SnackSara','KassaKees','ZaakZoe','FikaFinn'];
+function demoCrowd(day){
+  const {scn,seed}=dayCtx(day),r=mulberry32(seed^0xC0DE),B=scn.budget,st=moneyStep(scn),ps=priceStep(scn),o=optimize(scn,seed);
+  const g=(m,sd)=>{let u=0;while(!u)u=r();const v=r();return m+sd*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+  const rows=[],n=70+Math.floor(r()*90);
+  for(let k=0;k<n;k++){
+    const skill=Math.min(1,Math.max(0,g(0.45,0.3)));
+    let inv=roundTo(Math.min(B,Math.max(st,(B*0.5*(1-skill)+o.inv*skill)*g(1,0.2))),st);
+    let mkt=roundTo(Math.max(0,(B*0.1*(1-skill)+o.mkt*skill)*g(1,0.35)),st);if(inv+mkt>B)mkt=Math.max(0,B-inv);
+    const price=Math.max(ps,roundTo((scn.ref*(1-skill)+o.price*skill)*g(1,0.15),ps));
+    const pA=o.choice==='a'?0.45+0.45*skill:0.55-0.45*skill,choice=r()<pA?'a':'b';
+    const res=simulate(scn,inv,price,mkt,seed,choice);
+    rows.push({player_id:'demo'+k,name:DEMO_NAMES[k%DEMO_NAMES.length]+(k>=DEMO_NAMES.length?(Math.floor(k/DEMO_NAMES.length)+1):''),profit:Math.round(res.profit*100)/100,inv,price,mkt,choice});
+  }
+  return rows;
+}
+async function lbFetch(day){
+  if(lbCache[day]&&Date.now()-lbCache[day].t<30000)return lbCache[day];
+  let out=null;
+  if(LB_LIVE()){try{const res=await fetch(`${lbBase()}/rest/v1/runs?day=eq.${day}&select=player_id,name,profit,inv,price,mkt,choice&order=profit.desc&limit=5000`,{headers:lbHeaders()});
+    if(res.ok)out={rows:(await res.json()).map(x=>({...x,profit:+x.profit,inv:+x.inv,price:+x.price,mkt:+x.mkt})),demo:false};}catch(e){}}
+  if(!out)out={rows:demoCrowd(day),demo:true,offline:LB_LIVE()};
+  out.t=Date.now();return lbCache[day]=out;
+}
+function boardFor(data,h){
+  const rows=data.rows.map(x=>({...x,me:x.player_id===S.pid}));
+  if(h&&!rows.some(x=>x.me))rows.push({player_id:S.pid,name:S.name||'You',profit:h.profit,inv:h.inv,price:h.price,mkt:h.mkt,choice:h.choice||'b',me:true,local:true});
+  rows.sort((a,b)=>b.profit-a.profit);
+  const n=rows.length,idx=rows.findIndex(x=>x.me),me=rows[idx];
+  const below=me?rows.filter(x=>x.profit<me.profit).length:0;
+  return{rows,n,rank:idx+1,me,pct:n>1?below/(n-1)*100:100};
+}
+
 /* ================= SIMULATION ================= */
 let simRAF=null;
+const WHO=['🧍','🙋','👩','👨','🧑‍🎓','👵','👨‍👩‍👧','🧔','💁','🕺'];
+function buildEvents(r,c,from,to,rnd,H){
+  const s=c.scn,ev=r.ev,eff=evOpt(ev,r.choice),out=[];
+  for(let i=from;i<=to;i++){
+    const h=r.hours[i],t0=i*H;
+    if(i===6)out.push({t:t0,type:'twist'});
+    if(i===EV_HOUR&&r.choice){
+      const msg=[];
+      if(r.given)out.push({t:t0+H*.03,type:'stock',qty:-r.given,text:`📸 Handed out <b>${r.given}</b> free samples`});
+      if(r.restocked)out.push({t:t0+H*.03,type:'stock',qty:r.restocked,text:`🚚 Restock arrived: <b>+${r.restocked}</b> units`});
+      if(r.evSold)out.push({t:t0+H*.05,type:'evsale',qty:r.evSold,rev:r.evSold*c.price*eff.priceMult,text:`🧾 Bulk deal: ${r.evSold} units · <b>+${fmtP(s,r.evSold*c.price*eff.priceMult)}</b>`,big:true});
+      if(eff.cost)out.push({t:t0+H*.04,type:'meh',text:`💸 Paid ${fmt$(Math.round(s.budget*eff.cost))} — ${eff.short.toLowerCase()}`});
+      if(eff.flash)out.push({t:t0+H*.04,type:'meh',text:`⚡ Flash sale: ${fmtP(s,c.price*eff.flash)} for one hour!`});
+      if(h.closed)out.push({t:t0+H*.04,type:'lostinfo',text:`🚫 Closed for an hour while you argue the permit`});
+      if(eff.risk)out.push({t:t0+H*.06,type:'meh',text:r.rains?`🌧️ Downpour! Customers run for cover`:`🌤️ The clouds pass — not a drop of rain!`});
+    }
+    let rest=h.sold;if(h.bulk&&h.sold>0){const q=Math.min(h.bulk,h.sold);out.push({t:t0+H*.12,type:'buy',qty:q,price:h.price,text:`💼 BULK ORDER: ${q} units in one go!`,big:true});rest-=q;}
+    const chunks=rest>0?Math.min(3,rest):0;
+    for(let k=0;k<chunks;k++){const want=k===chunks-1?rest:Math.max(1,Math.round(rest/(chunks-k)*(0.7+rnd()*0.6)));const q=Math.min(want,rest);rest-=q;
+      if(q>0)out.push({t:t0+H*(0.2+k*0.27),type:'buy',qty:q,price:h.price,text:`${WHO[Math.floor(rnd()*WHO.length)]} ${q} ${q===1?'customer':'customers'} bought · <b>+${fmtP(s,q*h.price)}</b>`});}
+    if(c.price>s.ref*(i>=6&&s.twist.ref?s.twist.ref:1)*1.15&&h.priced>0&&rnd()<.55)out.push({t:t0+H*.4,type:'meh',text:`🤨 ${h.priced} browsed — "too pricey!"`});
+    else if(c.mkt>s.budget*.05&&rnd()<.18)out.push({t:t0+H*.45,type:'meh',text:`📣 Your ads are pulling in a crowd`});
+    if(h.lost>0)out.push({t:t0+H*.9,type:'lost',qty:h.lost,text:`😩 ${h.lost} walked away — <b>SOLD OUT</b>`});
+  }
+  return out;
+}
 function runSim(){
-  const c=ctx,s=c.scn,r=simulate(s,c.inv,c.price,c.mkt,c.seed),rnd=mulberry32(c.seed^0x9e37);
-  const H=10000/12,events=[];
-  r.hours.forEach((h,i)=>{
-    const t0=i*H;
-    if(i===6)events.push({t:t0,type:'twist'});
-    if(h.bulk&&h.sold>0){const q=Math.min(h.bulk,h.sold);events.push({t:t0+H*.12,type:'buy',qty:q,text:`💼 BULK ORDER: ${q} units in one go!`,big:true});h._rest=h.sold-q;}else h._rest=h.sold;
-    let rest=h._rest;const chunks=rest>0?Math.min(3,rest):0;
-    for(let k=0;k<chunks;k++){const q=k===chunks-1?rest:Math.max(1,Math.round(rest/(chunks-k)*(0.7+rnd()*0.6)));const qq=Math.min(q,rest);rest-=qq;if(qq>0){
-      const who=['🧍','🙋','👩','👨','🧑‍🎓','👵','👨‍👩‍👧','🧔','💁','🕺'][Math.floor(rnd()*10)];
-      events.push({t:t0+H*(0.2+k*0.27),type:'buy',qty:qq,text:`${who} ${qq} ${qq===1?'customer':'customers'} bought · <b>+${fmtP(s,qq*c.price)}</b>`});}}
-    if(c.price>s.ref*(i>=6&&s.twist.ref?s.twist.ref:1)*1.15&&h.priced>0&&rnd()<.55)events.push({t:t0+H*.4,type:'meh',text:`🤨 ${h.priced} browsed — "too pricey!"`});
-    else if(c.mkt>s.budget*.05&&rnd()<.18)events.push({t:t0+H*.45,type:'meh',text:`📣 Your ads are pulling in a crowd`});
-    if(h.lost>0)events.push({t:t0+H*.9,type:'lost',qty:h.lost,text:`😩 ${h.lost} walked away — <b>SOLD OUT</b>`});
-  });
-  events.sort((a,b)=>a.t-b.t);
-  const tw=s.twist,pos=tw.type==='pos';
+  const c=ctx,s=c.scn,H=10000/12,rnd=mulberry32(c.seed^0x9e37),ev=eventFor(c.seed);
+  let r=simulate(s,c.inv,c.price,c.mkt,c.seed,'b'); // hours before 1 PM are identical for both choices
+  let events=buildEvents({...r,choice:null},c,0,EV_HOUR-1,rnd,H).sort((a,b)=>a.t-b.t);
+  const tw=s.twist,pos=tw.type==='pos',units=r.units,cashKept=s.budget-r.spend-c.mkt;
   $('screenSim').innerHTML=`
   <div class="card relative overflow-hidden p-5">
     <div class="flex items-center justify-between">
       <div><div class="text-[11px] font-bold uppercase tracking-widest text-slate-400">${s.title}</div><div id="simClock" class="font-display text-4xl font-bold tabular text-emerald-900">10:00 AM</div></div>
       <div class="stall text-5xl">${s.emoji}</div>
     </div>
-    <div class="relative mt-3 h-3 overflow-visible rounded-full bg-slate-100">
+    <div class="relative mt-5 h-3 overflow-visible rounded-full bg-slate-100">
       <div id="simBar" class="h-full w-0 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
+      <div class="absolute top-1/2 h-5 w-1 -translate-y-1/2 rounded bg-sky-500" style="left:25%"></div>
+      <div class="absolute -top-5 -translate-x-1/2 text-[10px] font-bold text-sky-600" style="left:25%">🎲1PM</div>
       <div class="absolute top-1/2 h-5 w-1 -translate-y-1/2 rounded bg-amber-500" style="left:50%"></div>
       <div class="absolute -top-5 -translate-x-1/2 text-[10px] font-bold text-amber-600" style="left:50%">⚡4PM</div>
     </div>
@@ -510,7 +622,7 @@ function runSim(){
       <div id="simRev" class="font-display text-5xl font-bold tabular text-gold-300">$0</div>
     </div>
     <div class="mt-3 grid grid-cols-3 gap-2 text-center">
-      <div class="rounded-xl bg-slate-50 p-2"><div class="text-[10px] font-bold uppercase text-slate-400">Stock</div><div id="simStock" class="font-display text-xl font-bold tabular">${r.units}</div></div>
+      <div class="rounded-xl bg-slate-50 p-2"><div class="text-[10px] font-bold uppercase text-slate-400">Stock</div><div id="simStock" class="font-display text-xl font-bold tabular">${units}</div></div>
       <div class="rounded-xl bg-emerald-50 p-2"><div class="text-[10px] font-bold uppercase text-emerald-600">Served</div><div id="simServed" class="font-display text-xl font-bold tabular text-emerald-700">0</div></div>
       <div class="rounded-xl bg-rose-50 p-2"><div class="text-[10px] font-bold uppercase text-rose-500">Walked</div><div id="simLost" class="font-display text-xl font-bold tabular text-rose-600">0</div></div>
     </div>
@@ -523,31 +635,61 @@ function runSim(){
   <div class="card mt-4 p-4">
     <div class="mb-2 flex items-center justify-between"><div class="text-sm font-bold text-slate-600">📟 Live feed</div><button id="btnSkip" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">Skip ⏩</button></div>
     <div id="feed" class="space-y-1.5 text-sm" style="min-height:190px"></div>
+  </div>
+  <div id="evPanel" class="hide modal-bg fixed inset-0 z-40 flex items-end justify-center p-4 sm:items-center">
+    <div class="card pop w-full max-w-md overflow-hidden">
+      <div class="bg-gradient-to-br from-sky-500 to-indigo-600 px-5 pb-4 pt-3 text-white">
+        <div class="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.2em]"><span class="rounded bg-white px-1.5 py-0.5 text-sky-700">🎲 Your call</span> 1:00 PM · clock paused</div>
+        <div class="mt-2 flex items-start gap-3"><div class="text-5xl">${ev.icon}</div><div><div class="font-display text-2xl font-bold leading-tight">${ev.title}</div><div class="mt-1 text-sm text-white/90">${eventText(s,ev,units,cashKept)}</div></div></div>
+      </div>
+      <div class="grid gap-3 p-4">
+        <button data-choice="a" class="btn3d btn-em w-full rounded-2xl py-3.5 font-display text-lg font-bold">${evOpt(ev,'a').label}</button>
+        <button data-choice="b" class="btn3d btn-white w-full rounded-2xl py-3.5 font-display text-lg font-bold">${evOpt(ev,'b').label}</button>
+      </div>
+    </div>
   </div>`;
   show('screenSim');
-  let rev=0,served=0,walked=0,stock=r.units,ei=0,start=null,done=false,bannerHide=null;
+  let rev=0,served=0,walked=0,stock=units,ei=0,start=null,offset=0,pausedAt=null,decided=false,done=false,bannerHide=null;
   const feed=$('feed');
   const addFeed=(html,cls)=>{const d=document.createElement('div');d.className='feed-item rounded-xl px-3 py-2 '+cls;d.innerHTML=html;feed.prepend(d);while(feed.children.length>6)feed.lastChild.remove();};
   const floatCoin=txt=>{const b=$('revBox'),f=document.createElement('div');f.className='float-coin text-gold-300 text-lg';f.style.left=(30+Math.random()*40)+'%';f.style.top='8%';f.textContent=txt;b.appendChild(f);setTimeout(()=>f.remove(),900);};
   const fire=(e,quiet)=>{
     if(e.type==='twist'){
-      if(r.spoiled){stock-=r.spoiled;}
+      if(r.spoiled)stock-=r.spoiled;
       if(!quiet){const b=$('twistBanner');b.classList.remove('hide');b.classList.add('banner-in');pos?Sound.alertGood():Sound.alertBad();if(navigator.vibrate)navigator.vibrate([40,40,40]);bannerHide=setTimeout(()=>b.classList.add('hide'),2300);}
       addFeed(`<b>${tw.icon} BREAKING:</b> ${tw.headline}${r.spoiled?` <b>(−${r.spoiled} units)</b>`:''}${tw.cash?` <b>(${signed$(tw.cash)})</b>`:''}`,pos?'bg-emerald-100 text-emerald-900':'bg-rose-100 text-rose-900');
-    }else if(e.type==='buy'){rev+=e.qty*c.price;served+=e.qty;stock-=e.qty;addFeed(e.text,e.big?'bg-gold-100 text-amber-900 font-semibold':'bg-slate-50');if(!quiet){Sound.coin();floatCoin('+'+fmtP(s,e.qty*c.price));}}
+    }else if(e.type==='buy'){rev+=e.qty*e.price;served+=e.qty;stock-=e.qty;addFeed(e.text,e.big?'bg-gold-100 text-amber-900 font-semibold':'bg-slate-50');if(!quiet){Sound.coin();floatCoin('+'+fmtP(s,e.qty*e.price));}}
+    else if(e.type==='evsale'){rev+=e.rev;served+=e.qty;stock-=e.qty;addFeed(e.text,'bg-sky-100 text-sky-900 font-semibold');if(!quiet){Sound.coin();floatCoin('+'+fmtP(s,e.rev));}}
+    else if(e.type==='stock'){stock+=e.qty;addFeed(e.text,'bg-sky-50 text-sky-900');}
     else if(e.type==='lost'){walked+=e.qty;addFeed(e.text,'bg-rose-50 text-rose-700');if(!quiet)Sound.buzz();}
+    else if(e.type==='lostinfo')addFeed(e.text,'bg-rose-50 text-rose-700');
     else addFeed(e.text,'bg-slate-50 text-slate-500');
   };
-  const paint=(el)=>{const hf=Math.min(12,el/H);$('simClock').textContent=clockStr(10+hf);$('simBar').style.width=(hf/12*100)+'%';
+  const paint=el=>{const hf=Math.min(12,el/H);$('simClock').textContent=clockStr(10+hf);$('simBar').style.width=(hf/12*100)+'%';
     $('simRev').textContent=fmt$(rev);$('simServed').textContent=served;$('simLost').textContent=walked;$('simStock').textContent=Math.max(0,stock);
-    const sb=$('simStockBar');sb.style.width=(r.units?Math.max(0,stock)/r.units*100:0)+'%';sb.className='h-full rounded-full transition-all '+(stock<=0?'bg-rose-500':stock<r.units*.25?'bg-amber-500':'bg-emerald-500');};
+    const total=units+r.restocked,sb=$('simStockBar');sb.style.width=(total?Math.max(0,stock)/total*100:0)+'%';sb.className='h-full rounded-full transition-all '+(stock<=0?'bg-rose-500':stock<total*.25?'bg-amber-500':'bg-emerald-500');};
+  const pauseForEvent=(ts,quiet)=>{
+    while(ei<events.length&&events[ei].t<EV_HOUR*H)fire(events[ei++],quiet);
+    paint(EV_HOUR*H);pausedAt=ts;cancelAnimationFrame(simRAF);
+    $('evPanel').classList.remove('hide');Sound.alertGood();if(navigator.vibrate)navigator.vibrate(30);
+  };
+  document.querySelectorAll('#evPanel [data-choice]').forEach(b=>b.onclick=()=>{
+    if(decided)return;decided=true;const ch=b.dataset.choice;c.choice=ch;Sound.click();
+    r=simulate(s,c.inv,c.price,c.mkt,c.seed,ch);
+    events=events.slice(0,ei).concat(buildEvents(r,c,EV_HOUR,11,rnd,H).sort((a,b)=>a.t-b.t));
+    $('evPanel').classList.add('hide');
+    offset+=performance.now()-pausedAt;pausedAt=null;simRAF=requestAnimationFrame(loop);
+  });
   const finish=()=>{if(done)return;done=true;cancelAnimationFrame(simRAF);clearTimeout(bannerHide);
     while(ei<events.length)fire(events[ei++],true);rev=r.revenue;served=r.sold;walked=r.lost;stock=r.leftover;paint(10000);
     $('twistBanner').classList.add('hide');addFeed(`🔒 <b>10:00 PM</b> — closing time! ${r.leftover?`${r.leftover} units left.`:'Every unit sold.'}`,'bg-emerald-900 text-white');
     Sound.register();setTimeout(()=>completeRun(r),900);};
-  const loop=ts=>{if(start===null)start=ts;const el=ts-start;while(ei<events.length&&events[ei].t<=el)fire(events[ei++]);paint(el);if(el>=10000)finish();else simRAF=requestAnimationFrame(loop);};
+  const loop=ts=>{if(start===null)start=ts;const el=ts-start-offset;
+    if(!decided&&el>=EV_HOUR*H){pauseForEvent(ts,false);return;}
+    while(ei<events.length&&events[ei].t<=el)fire(events[ei++]);paint(el);
+    if(el>=10000)finish();else simRAF=requestAnimationFrame(loop);};
   simRAF=requestAnimationFrame(loop);
-  $('btnSkip').onclick=finish;
+  $('btnSkip').onclick=()=>{if(done)return;if(!decided){if(pausedAt===null)pauseForEvent(performance.now(),true);return;}finish();};
 }
 
 /* ================= RESULTS ================= */
@@ -557,31 +699,80 @@ function completeRun(r){
     const o=optimize(c.scn,c.seed),ratio=o.profit>0?r.profit/o.profit:(r.profit>=0?1:0),st=stars(ratio),pct=percentile(ratio,c.seed^Math.round(r.profit));
     const d=c.idx;if(S.last===d-1)S.streak=(S.streak||0)+1;else if(S.last!==d)S.streak=1;S.last=d;S.best=Math.max(S.best,S.streak);
     S.net=Math.round((S.net+r.profit)*100)/100;
-    S.history[d]={day:c.day,scn:c.scn.id,inv:c.inv,price:c.price,mkt:c.mkt,profit:Math.round(r.profit*100)/100,stars:st,pct,ratio};
-    // keep history small
+    S.history[d]={day:c.day,scn:c.scn.id,inv:c.inv,price:c.price,mkt:c.mkt,choice:r.choice,profit:Math.round(r.profit*100)/100,stars:st,pct,ratio};
     const keys=Object.keys(S.history).map(Number).sort((a,b)=>b-a);keys.slice(60).forEach(k=>delete S.history[k]);
-    save();renderHeader();
+    save();renderHeader();lbSubmit(c.day);
   }
   renderResults(r,false);
 }
-function emojiGrid(r){
-  const v=h=>Math.max(0,h.sold-h.bulk)+h.lost,mx=Math.max(1,...r.hours.map(v));
-  const cell=h=>h.lost>0?'🟥':h.sold===0?'⬛':(h.bulk||v(h)/mx>=.66)?'🟩':v(h)/mx>=.33?'🟨':'🟧';
-  const cells=r.hours.map(cell);return cells.slice(0,6).join('')+'\n'+cells.slice(6).join('');
-}
+const hourCell=(h,mx,v)=>h.lost>0?'red':h.sold===0?'none':(h.bulk||h.evSold||v(h)/mx>=.66)?'green':v(h)/mx>=.33?'yellow':'orange';
+function hourCells(r){const v=h=>Math.max(0,h.sold-h.bulk)+h.lost,mx=Math.max(1,...r.hours.map(v));return r.hours.map(h=>hourCell(h,mx,v));}
+function emojiGrid(r){const m={red:'🟥',none:'⬛',green:'🟩',yellow:'🟨',orange:'🟧'},cells=hourCells(r).map(x=>m[x]);return cells.slice(0,6).join('')+'\n'+cells.slice(6).join('');}
+const shareURL=()=>/^https?:/.test(location.href)&&!/claude\.ai|claudeusercontent/.test(location.host)?location.href.split('#')[0].split('?')[0]:'';
+function rankLine(meta){return meta.live&&meta.rank?`#${meta.rank} of ${meta.n} · Top ${Math.max(1,Math.round(100-meta.pct))}%`:`Top ${Math.max(1,Math.round(100-meta.pct))}%`;}
 function shareText(r,meta){
-  const c=ctx,s=c.scn;
+  const c=ctx,s=c.scn,ev=r.ev;
   const head=c.mode==='archive'?`DAILY PROFIT 💰 Archive #${c.day}`:`DAILY PROFIT 💰 Day #${c.day}${c.mode==='retry'?' (retry)':''}`;
-  const lines=[head+(S.pro?' 👑VIP':''),`${s.emoji} ${s.title}`,`${r.profit>=0?'📈':'📉'} ${signed$(r.profit)} profit`,`${'⭐'.repeat(meta.st)}${'☆'.repeat(5-meta.st)} · Top ${Math.max(1,Math.round(100-meta.pct))}%`,emojiGrid(r),`${s.twist.icon} 4PM twist · 🔥 Streak ${liveStreak()}`];
-  if(/^https?:/.test(location.href))lines.push(location.href.split('#')[0]);
+  const lines=[head+(S.pro?' 👑VIP':''),`${s.emoji} ${s.title}`,`${r.profit>=0?'📈':'📉'} ${signed$(r.profit)} profit`,`${'⭐'.repeat(meta.st)}${'☆'.repeat(5-meta.st)} · ${rankLine(meta)}`,emojiGrid(r),`${ev.icon} 1PM · ${s.twist.icon} 4PM · 🔥 Streak ${liveStreak()}`];
+  const u=shareURL();if(u)lines.push(u);
   return lines.join('\n');
 }
 async function copyText(t){
   try{await navigator.clipboard.writeText(t);return true;}catch(e){
     const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy');}catch(_){}ta.remove();return ok;}
 }
+
+/* ---------- share image (canvas) ---------- */
+function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+function starPath(g,cx,cy,R){const r=R*0.48;g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,d=i%2?r:R;g.lineTo(cx+d*Math.cos(a),cy+d*Math.sin(a));}g.closePath();}
+async function drawShareCard(r,meta){
+  try{await Promise.race([Promise.all([document.fonts.load('700 120px Fredoka'),document.fonts.load('800 40px Inter')]),new Promise(res=>setTimeout(res,1200))]);}catch(e){}
+  const c=ctx,s=c.scn,W=1080,Hh=1350,cv=document.createElement('canvas');cv.width=W;cv.height=Hh;const g=cv.getContext('2d');
+  const FD=(w,sz)=>`${w} ${sz}px Fredoka, system-ui, sans-serif`,FI=(w,sz)=>`${w} ${sz}px Inter, system-ui, sans-serif`;
+  const sp=v=>{if('letterSpacing' in g)g.letterSpacing=v;};
+  const neg=r.profit<0;
+  let gr=g.createLinearGradient(0,0,W,Hh);
+  if(neg){gr.addColorStop(0,'#f43f5e');gr.addColorStop(.6,'#9f1239');gr.addColorStop(1,'#4c0519');}else{gr.addColorStop(0,'#10b981');gr.addColorStop(.55,'#047857');gr.addColorStop(1,'#022c22');}
+  g.fillStyle=gr;g.fillRect(0,0,W,Hh);
+  g.save();g.globalAlpha=.06;g.strokeStyle='#fff';g.lineWidth=18;for(let x=-1400;x<1400;x+=64){g.beginPath();g.moveTo(x,0);g.lineTo(x+Hh,Hh);g.stroke();}g.restore();
+  g.save();g.globalAlpha=.13;g.font='480px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';g.textAlign='right';g.textBaseline='alphabetic';g.fillText(s.emoji,W+90,600);g.restore();
+  // header
+  g.textBaseline='alphabetic';g.textAlign='left';g.fillStyle='#fff';g.font=FD(700,80);sp('0px');g.fillText('DAILY PROFIT',80,150);
+  g.fillStyle='#fcd973';g.font=FI(800,28);sp('9px');g.fillText('MINI-TYCOON',84,196);sp('0px');
+  // day pill
+  const dayTxt=c.mode==='archive'?`ARCHIVE #${c.day}`:`DAY #${c.day}${c.mode==='retry'?' · RETRY':''}`;
+  g.font=FI(800,30);sp('3px');const pw=g.measureText(dayTxt).width+56;rr(g,W-80-pw,96,pw,64,32);g.fillStyle='#fcd973';g.fill();
+  g.fillStyle='#5b3d02';g.textAlign='center';g.fillText(dayTxt,W-80-pw/2,140);sp('0px');
+  if(S.pro){g.font=FI(800,26);const vt='👑 VIP';const vw=g.measureText(vt).width+40;rr(g,W-80-vw,176,vw,48,24);g.fillStyle='rgba(252,217,115,.25)';g.fill();g.fillStyle='#fcd973';g.fillText(vt,W-80-vw/2,209);}
+  // scenario
+  rr(g,80,260,150,150,38);g.fillStyle='#fff';g.fill();
+  g.textAlign='center';g.font='92px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';g.fillStyle='#000';g.fillText(s.emoji,155,368);
+  g.textAlign='left';g.fillStyle='#fff';g.font=FD(700,54);
+  const words=s.title.split(' '),lines=[];let line='';for(const w of words){const t=line?line+' '+w:w;if(g.measureText(t).width>700&&line){lines.push(line);line=w;}else line=t;}lines.push(line);
+  const ty=lines.length>1?322:352;lines.slice(0,2).forEach((l,i)=>g.fillText(l,262,ty+i*62));
+  g.font=FI(600,28);g.fillStyle='rgba(255,255,255,.75)';g.fillText(s.place,264,ty+(Math.min(2,lines.length)-1)*62+50);
+  // profit
+  g.textAlign='center';g.fillStyle='rgba(255,255,255,.75)';g.font=FI(800,32);sp('8px');g.fillText(neg?'NET LOSS':'NET PROFIT',W/2,540);sp('0px');
+  const ptxt=signed$(r.profit);let fs=190;g.font=FD(700,fs);while(g.measureText(ptxt).width>940&&fs>90){fs-=8;g.font=FD(700,fs);}
+  g.fillStyle='rgba(0,0,0,.18)';g.fillText(ptxt,W/2+6,716);g.fillStyle=neg?'#fecdd3':'#fcd973';g.fillText(ptxt,W/2,710);
+  // stars
+  for(let i=0;i<5;i++){starPath(g,W/2+(i-2)*130,800,52);g.fillStyle=i<meta.st?'#fcd973':'rgba(255,255,255,.18)';g.fill();}
+  // rank pill
+  const rk='🌍 '+rankLine(meta);g.font=FI(800,34);const rw=g.measureText(rk).width+70;rr(g,W/2-rw/2,870,rw,72,36);g.fillStyle='rgba(255,255,255,.16)';g.fill();g.fillStyle='#fff';g.fillText(rk,W/2,918);
+  // hour grid
+  const col={green:'#34d399',yellow:'#fcd34d',orange:'#fb923c',red:'#f87171',none:'rgba(255,255,255,.14)'},cells=hourCells(r),sz=112,gap=18,gx=(W-(6*sz+5*gap))/2;
+  cells.forEach((k,i)=>{const x=gx+(i%6)*(sz+gap),y=990+Math.floor(i/6)*(sz+gap);rr(g,x,y,sz,sz,22);g.fillStyle=col[k];g.fill();});
+  // footer
+  g.font=FI(700,32);g.textAlign='left';g.fillStyle='#fff';g.fillText(`🔥 ${liveStreak()}-day streak`,80,1290);
+  g.textAlign='right';g.fillText(`${r.ev.icon} 1PM  ${s.twist.icon} 4PM`,W-80,1290);
+  const u=shareURL();if(u){g.textAlign='center';g.font=FI(600,24);g.fillStyle='rgba(255,255,255,.6)';g.fillText(u.replace(/^https?:\/\//,'').replace(/\/$/,''),W/2,1332);}
+  if(S.pro){g.lineWidth=14;g.strokeStyle='#f8c537';rr(g,7,7,W-14,Hh-14,40);g.stroke();}
+  return cv;
+}
+
 function tipsFor(r,o,c){
-  const s=c.scn,tips=[];
+  const s=c.scn,tips=[],ev=r.ev;
+  if(r.choice!==o.choice)tips.push(`At 1 PM, <b>“${evOpt(ev,o.choice).label}”</b> was the smarter call today.`);
   if(r.soldOut&&r.soldOut<21.5&&r.lost>0)tips.push(`You sold out at <b>${clockStr(r.soldOut)}</b> and turned away <b>${r.lost}</b> customers — stock more or charge more.`);
   if(r.units>0&&r.leftover>r.units*.2)tips.push(`<b>${r.leftover}</b> units were left over${s.salvage?` (resold for ${fmt$(r.salvage)})`:' and went in the bin'} — buy less or price lower.`);
   if(c.price<o.price*.88)tips.push(`Customers would have paid more — the sweet spot was around <b>${fmtP(s,o.price)}</b>.`);
@@ -590,22 +781,70 @@ function tipsFor(r,o,c){
   else if(c.mkt>o.mkt*1.6+s.budget*.05)tips.push(`Marketing overspend — returns flatten out fast.`);
   if(s.twist.bulk&&c.price>s.ref*1.6)tips.push(`The investor skipped your overpriced drinks — the bulk order needed a price under ${fmtP(s,s.ref*1.6)}.`);
   if(!tips.length)tips.push(s.twist.type==='pos'?`The 4 PM boom rewarded having stock in reserve. Nicely played.`:`You weathered the 4 PM shock well. Lean stock wins on bad-news days.`);
-  return tips.slice(0,2);
+  return tips.slice(0,3);
 }
+
+/* ---------- leaderboard + crowd cards ---------- */
+function lbCardHTML(b,data,o){
+  const medal=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':`<span class="text-xs font-bold text-slate-400">#${i+1}</span>`;
+  const rowH=(x,i)=>`<div class="flex items-center gap-3 rounded-xl px-3 py-2 ${x.me?'bg-emerald-50 ring-2 ring-emerald-400':i%2?'':'bg-slate-50'}">
+    <div class="w-7 text-center text-lg">${medal(i)}</div>
+    <div class="min-w-0 flex-1 truncate font-semibold ${x.me?'text-emerald-800':'text-slate-700'}">${x.me?(S.name?escapeHTML(S.name)+' (you)':'You'):escapeHTML(x.name)}</div>
+    <div class="text-[11px] text-amber-500">${'★'.repeat(stars(o.profit>0?x.profit/o.profit:0))}</div>
+    <div class="w-20 text-right font-display font-bold tabular ${x.profit>=0?'text-emerald-700':'text-rose-600'}">${signed$(x.profit)}</div></div>`;
+  const top=b.rows.slice(0,10).map(rowH).join('');
+  const meRow=b.rank>10?`<div class="py-1 text-center text-slate-300">⋮</div>${rowH(b.me,b.rank-1)}`:'';
+  const join=!S.name?`<form id="lbJoin" class="mb-3 rounded-2xl bg-gold-50 p-3 ring-1 ring-gold-300" autocomplete="off">
+      <div class="text-sm font-bold text-amber-900">Pick a name for the leaderboard</div>
+      <div class="mt-2 flex gap-2"><input id="lbName" maxlength="16" placeholder="e.g. TycoonVugie" class="min-w-0 flex-1 rounded-xl border-2 border-gold-300 bg-white px-3 py-2 font-semibold outline-none focus:border-emerald-400"><button class="btn3d btn-em shrink-0 rounded-xl px-4 py-2 font-display font-bold">Join</button></div>
+      <div class="mt-1 text-[11px] text-amber-800/70">Letters and numbers, max 16 characters. Shown publicly.</div></form>`:'';
+  return `<div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold text-emerald-900">🏆 Today's leaderboard</h3>
+      ${data.demo?'<span class="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-white">DEMO</span>':'<span class="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-emerald-700"><span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>LIVE</span>'}</div>
+    <div class="mb-3 text-xs text-slate-500">You're <b class="text-emerald-700">#${b.rank}</b> of ${b.n} players · beat ${Math.round(b.pct)}%</div>
+    ${join}<div class="space-y-1 text-sm">${top}${meRow}</div>
+    ${data.demo?`<div class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-[11px] text-slate-500">${data.offline?'Couldn\'t reach the live leaderboard, so these are':'These are'} simulated demo players. Connect Supabase (see README) to show real ones.</div>`:''}`;
+}
+function escapeHTML(t){return String(t).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function median(a){const b=[...a].sort((x,y)=>x-y),m=b.length>>1;return b.length?(b.length%2?b[m]:(b[m-1]+b[m])/2):0;}
+function crowdCardHTML(b,data,c){
+  const s=c.scn,rows=b.rows,ev=eventFor(c.seed),me=b.me;
+  const prices=rows.map(x=>x.price),lo=Math.min(...prices),hi=Math.max(...prices),bins=9,w=(hi-lo)/bins||1,cnt=Array(bins).fill(0);
+  prices.forEach(p=>cnt[Math.min(bins-1,Math.floor((p-lo)/w))]++);
+  const myBin=Math.min(bins-1,Math.floor((me.price-lo)/w)),mx=Math.max(...cnt),pk=cnt.indexOf(mx);
+  const hist=cnt.map((n,i)=>`<div class="flex flex-1 flex-col items-center justify-end gap-1"><div class="w-full rounded-t-md ${i===myBin?'bg-gold-400':'bg-emerald-300'}" style="height:${Math.max(4,n/mx*64)}px"></div></div>`).join('');
+  const aN=rows.filter(x=>x.choice==='a').length,aP=Math.round(aN/rows.length*100);
+  const stat=(icon,label,crowd,you)=>`<div class="rounded-xl bg-slate-50 p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${icon} ${label}</div><div class="font-display text-base font-bold">${crowd}</div><div class="text-[11px] text-slate-500">you: <b class="text-slate-700">${you}</b></div></div>`;
+  const top10=rows.slice(0,Math.max(1,Math.round(rows.length*.1)));
+  return `<div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold text-emerald-900">👥 How others played</h3>${data.demo?'<span class="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-white">DEMO</span>':''}</div>
+    <div class="mt-3 text-xs font-semibold text-slate-500">Prices players charged <span class="text-slate-400">(your bar in gold)</span></div>
+    <div class="mt-2 flex h-16 items-end gap-1">${hist}</div>
+    <div class="mt-1 flex justify-between text-[10px] font-semibold text-slate-400"><span>${fmtP(s,lo)}</span><span>most: ${fmtP(s,lo+pk*w)}–${fmtP(s,lo+(pk+1)*w)}</span><span>${fmtP(s,hi)}</span></div>
+    <div class="mt-4 grid grid-cols-3 gap-2 text-left">
+      ${stat('📦','Median stock',fmt$(median(rows.map(x=>x.inv))),fmt$(me.inv))}
+      ${stat('🏷️','Median price',fmtP(s,median(prices)),fmtP(s,me.price))}
+      ${stat('📣','Median ads',fmt$(median(rows.map(x=>x.mkt))),fmt$(me.mkt))}
+    </div>
+    <div class="mt-4 text-xs font-semibold text-slate-500">${ev.icon} The 1 PM call</div>
+    <div class="mt-1.5 flex h-9 overflow-hidden rounded-xl text-xs font-bold text-white">
+      <div class="flex items-center justify-start bg-emerald-500 px-2" style="width:${Math.max(aP,12)}%">${aP}%</div>
+      <div class="flex flex-1 items-center justify-end bg-slate-400 px-2">${100-aP}%</div></div>
+    <div class="mt-1 flex justify-between text-[11px] text-slate-500"><span>${me.choice==='a'?'✅ ':''}${evOpt(ev,'a').label}</span><span>${evOpt(ev,'b').label}${me.choice!=='a'?' ✅':''}</span></div>
+    <div class="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">🏅 Top 10% averaged <b>${signed$(top10.reduce((a,x)=>a+x.profit,0)/top10.length)}</b> · median player <b>${signed$(median(rows.map(x=>x.profit)))}</b></div>`;
+}
+
 function renderResults(r,fromLocked){
-  const c=ctx,s=c.scn,o=optimize(s,c.seed);
+  const c=ctx,s=c.scn,o=optimize(s,c.seed),ev=r.ev;
   const ratio=o.profit>0?r.profit/o.profit:(r.profit>=0?1:0),st=stars(ratio);
-  const ranked=c.mode==='daily';const h=ranked?S.history[c.idx]:null;
-  const pct=h?h.pct:percentile(ratio,c.seed^Math.round(r.profit));
-  const meta={st,pct};const top=Math.max(1,Math.round(100-pct));
+  const ranked=c.mode==='daily';const h=c.mode!=='archive'?S.history[c.idx]:null;
+  const meta={st,pct:ranked&&h?h.pct:percentile(ratio,c.seed^Math.round(r.profit)),live:false,rank:0,n:0};
   const mx=Math.max(1,...r.hours.map(x=>x.sold+x.lost));
   const bars=r.hours.map((x,i)=>`<div class="flex flex-1 flex-col items-center gap-1"><div class="flex h-20 w-full flex-col-reverse overflow-hidden rounded-md bg-slate-100">
       <div class="bg-emerald-500" style="height:${x.sold/mx*100}%"></div><div class="bg-rose-400" style="height:${x.lost/mx*100}%"></div></div>
-      <div class="text-[9px] font-bold ${i===6?'text-amber-600':'text-slate-400'}">${i===6?'⚡':((i+9)%12+1)}</div></div>`).join('');
+      <div class="text-[9px] font-bold ${i===6?'text-amber-600':i===EV_HOUR?'text-sky-600':'text-slate-400'}">${i===6?'⚡':i===EV_HOUR?'🎲':((i+9)%12+1)}</div></div>`).join('');
   const row=(k,you,best)=>`<tr class="border-t border-slate-100"><td class="py-2 text-slate-500">${k}</td><td class="py-2 text-right font-semibold tabular">${you}</td><td class="py-2 text-right font-bold tabular text-emerald-700">${best}</td></tr>`;
-  const share=shareText(r,meta);
   const badge=ranked?`<span class="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white">Ranked · Day #${c.day}</span>`:`<span class="rounded-full bg-slate-700 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-white">Unranked · ${c.mode==='archive'?'Archive #'+c.day:'Retry Day #'+c.day}</span>`;
-  const rankedNote=(!ranked&&c.mode==='retry'&&S.history[c.idx])?`<div class="mt-2 text-xs text-slate-500">Your ranked score today: <b>${signed$(S.history[c.idx].profit)}</b></div>`:'';
+  const rankedNote=(c.mode==='retry'&&h)?`<div class="mt-2 text-xs text-white/80">Your ranked score today: <b>${signed$(h.profit)}</b></div>`:'';
+  const showBoard=c.mode!=='archive'&&!!h;
   $('screenResults').innerHTML=`
   <div class="card overflow-hidden text-center">
     <div class="bg-gradient-to-b ${r.profit>=0?'from-emerald-500 to-emerald-700':'from-rose-500 to-rose-700'} px-5 pb-6 pt-4 text-white">
@@ -614,18 +853,36 @@ function renderResults(r,fromLocked){
       <div class="text-[11px] font-bold uppercase tracking-[.2em] text-white/70 mt-3">Net ${r.profit>=0?'Profit':'Loss'}</div>
       <div id="resProfit" class="font-display text-6xl font-bold tabular drop-shadow">$0</div>
       <div id="resStars" class="mt-2 flex justify-center gap-1 text-4xl">${[0,1,2,3,4].map(i=>`<span data-star="${i}" class="opacity-25 grayscale">⭐</span>`).join('')}</div>
-      <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-bold">🌍 Top ${top}% <span class="font-normal text-white/80">· beat ${Math.round(pct)}% of players</span></div>
+      <div id="pctPill" class="mt-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-bold">🌍 Top ${Math.max(1,Math.round(100-meta.pct))}% <span class="font-normal text-white/80">· beat ${Math.round(meta.pct)}% of players</span></div>
       ${rankedNote}
     </div>
     <div class="grid grid-cols-3 gap-px bg-slate-100 text-left">
-      ${[['Revenue',fmt$(r.revenue)],['Units sold',`${r.sold}/${r.units}`],['Sold out',r.soldOut?clockStr(r.soldOut):'—'],['Stock cost',fmt$(r.spend)],['Marketing',fmt$(r.mkt)],['Walked away',r.lost],['Leftovers',`${r.leftover}${r.salvage?` (+${fmt$(r.salvage)})`:''}`],['Twist',`${s.twist.icon} ${s.twist.type==='pos'?'Boost':'Hit'}`],['Your price',fmtP(s,c.price)]].map(([k,v])=>`<div class="bg-white p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${k}</div><div class="font-display text-base font-bold tabular">${v}</div></div>`).join('')}
+      ${[['Revenue',fmt$(r.revenue)],['Units sold',`${r.sold}/${r.units+r.restocked}`],['Sold out',r.soldOut?clockStr(r.soldOut):'—'],
+         ['Stock cost',fmt$(r.spend)],['Marketing',fmt$(r.mkt)],['1 PM costs',r.extra?fmt$(r.extra):'—'],
+         ['Walked away',r.lost],['Leftovers',`${r.leftover}${r.salvage?` (+${fmt$(r.salvage)})`:''}`],['Your price',fmtP(s,c.price)],
+         ['1 PM call',`${ev.icon} ${evOpt(ev,r.choice).short}`],['4 PM twist',`${s.twist.icon} ${s.twist.type==='pos'?'Boost':'Hit'}`],['Served',`${r.sold} 🛍️`]]
+        .map(([k,v])=>`<div class="bg-white p-3"><div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${k}</div><div class="font-display text-base font-bold leading-tight tabular">${v}</div></div>`).join('')}
     </div>
+  </div>
+
+  ${showBoard?`<div id="lbCard" class="card mt-4 p-5"><div class="animate-pulse text-sm text-slate-400">Loading leaderboard…</div></div>`:''}
+
+  <div class="card mt-4 p-5">
+    <h3 class="font-display text-lg font-bold text-emerald-900">Share your score</h3>
+    <div class="relative mt-3 overflow-hidden rounded-2xl bg-emerald-900" style="aspect-ratio:4/5"><img id="shareImg" alt="Your DAILY PROFIT score card" class="h-full w-full object-cover opacity-0 transition-opacity duration-300"><div id="shareImgLoad" class="absolute inset-0 grid place-items-center text-sm text-emerald-200">Drawing your card…</div></div>
+    <div class="mt-4 grid grid-cols-2 gap-3">
+      <button id="btnShareImg" class="btn3d btn-em rounded-2xl py-3.5 font-display text-base font-bold">🖼️ Share image</button>
+      <button id="btnShare" class="btn3d btn-white rounded-2xl py-3.5 font-display text-base font-bold">📋 Copy text</button>
+    </div>
+    <div class="mt-2 text-center text-[11px] text-slate-400">Tip: long-press (or right-click) the card to save it.</div>
   </div>
 
   <div class="card mt-4 p-5">
     <div class="flex items-center justify-between"><h3 class="font-display text-lg font-bold text-emerald-900">Hour by hour</h3><div class="text-[11px] font-semibold"><span class="text-emerald-600">■ sold</span> <span class="text-rose-500">■ missed</span></div></div>
     <div class="mt-3 flex items-end gap-1">${bars}</div>
   </div>
+
+  ${showBoard?`<div id="crowdCard" class="card mt-4 p-5"><div class="animate-pulse text-sm text-slate-400">Loading…</div></div>`:''}
 
   <div class="card mt-4 overflow-hidden">
     <button id="btnReveal" class="flex w-full items-center gap-3 p-5 text-left">
@@ -635,28 +892,20 @@ function renderResults(r,fromLocked){
     </button>
     <div id="revealBody" class="hide border-t border-slate-100 px-5 pb-5 pt-3">
       <div class="flex items-center justify-between text-sm"><span class="text-slate-500">You captured</span><span class="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">${Math.round(Math.max(0,ratio)*100)}% of max profit</span></div>
-    <table class="mt-2 w-full text-sm"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="text-left font-bold">Decision</th><th class="text-right font-bold">You</th><th class="text-right font-bold">Optimal</th></tr></thead><tbody>
-      ${row('📦 Inventory',`${fmt$(c.inv)} <span class="text-xs text-slate-400">(${r.units})</span>`,`${fmt$(o.inv)} <span class="text-xs text-slate-400">(${o.res.units})</span>`)}
-      ${row('🏷️ Price',fmtP(s,c.price),fmtP(s,o.price))}
-      ${row('📣 Marketing',fmt$(c.mkt),fmt$(o.mkt))}
-      ${row('💰 Profit',signed$(r.profit),signed$(o.profit))}
-    </tbody></table>
-    <div class="mt-3 space-y-2">${tipsFor(r,o,c).map(t=>`<div class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">💡 ${t}</div>`).join('')}</div>
+      <table class="mt-2 w-full text-sm"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-400"><th class="text-left font-bold">Decision</th><th class="text-right font-bold">You</th><th class="text-right font-bold">Optimal</th></tr></thead><tbody>
+        ${row('📦 Inventory',`${fmt$(c.inv)} <span class="text-xs text-slate-400">(${r.units})</span>`,`${fmt$(o.inv)} <span class="text-xs text-slate-400">(${o.res.units})</span>`)}
+        ${row('🏷️ Price',fmtP(s,c.price),fmtP(s,o.price))}
+        ${row('📣 Marketing',fmt$(c.mkt),fmt$(o.mkt))}
+        ${row(ev.icon+' 1 PM call',evOpt(ev,r.choice).short,evOpt(ev,o.choice).short)}
+        ${row('💰 Profit',signed$(r.profit),signed$(o.profit))}
+      </tbody></table>
+      <div class="mt-3 space-y-2">${tipsFor(r,o,c).map(t=>`<div class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">💡 ${t}</div>`).join('')}</div>
     </div>
   </div>
-${adSlot('ad-results')}
+  ${adSlot('ad-results')}
 
   <div class="card mt-4 p-5">
-    <h3 class="font-display text-lg font-bold text-emerald-900">Share your score</h3>
-    <div class="relative mt-3 overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 p-4 text-white ${S.pro?'ring-4 ring-gold-400':''}">
-      ${S.pro?'<div class="gold-shine absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-extrabold text-amber-900">👑 VIP</div>':''}
-      <pre class="whitespace-pre-wrap font-sans text-[15px] leading-relaxed">${share.replace(/</g,'&lt;')}</pre>
-    </div>
-    <button id="btnShare" class="btn3d btn-em mt-4 w-full rounded-2xl py-3.5 font-display text-lg font-bold">📋 Share Score</button>
-  </div>
-
-  <div class="card mt-4 p-5">
-    ${ranked||c.mode==='retry'?`<div class="mb-4 rounded-2xl bg-emerald-950 px-4 py-3 text-center text-white"><div class="text-[11px] font-bold uppercase tracking-[.2em] text-emerald-300">Next daily challenge</div><div data-countdown class="font-display text-3xl font-bold tabular text-gold-300">${countdownText()}</div></div>`:''}
+    ${c.mode!=='archive'?`<div class="mb-4 rounded-2xl bg-emerald-950 px-4 py-3 text-center text-white"><div class="text-[11px] font-bold uppercase tracking-[.2em] text-emerald-300">Next daily challenge</div><div data-countdown class="font-display text-3xl font-bold tabular text-gold-300">${countdownText()}</div></div>`:''}
     <div class="grid gap-3">
       ${c.mode!=='archive'?retryButtonHTML():`<button id="btnReplayArch" class="btn3d btn-gold w-full rounded-2xl py-3.5 font-display text-lg font-bold">🔁 Replay this scenario</button>`}
       <button id="btnResArch" class="btn3d btn-white w-full rounded-2xl py-3 font-display text-base font-bold">🗂️ ${S.pro?'Open Archive':'Archive & Pro Pass 👑'}</button>
@@ -667,10 +916,38 @@ ${adSlot('ad-results')}
   // animations
   const el=$('resProfit'),t0=performance.now(),dur=1100;
   const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=signed$(r.profit*e);if(k<1)requestAnimationFrame(step);};requestAnimationFrame(step);
-  if(!fromLocked){if(r.profit<0)setTimeout(()=>Sound.fail(),300);}
+  if(!fromLocked&&r.profit<0)setTimeout(()=>Sound.fail(),300);
   for(let i=0;i<st;i++)setTimeout(()=>{const x=document.querySelector(`[data-star="${i}"]`);if(x){x.classList.remove('opacity-25','grayscale');x.classList.add('pop');}Sound.star(i);},1150+i*220);
   if(st>=4&&!fromLocked)setTimeout(()=>{confetti(st===5?80:45);Sound.fanfare();},1150+st*220);
-  $('btnShare').onclick=async()=>{Sound.click();const ok=await copyText(share);toast(ok?'📋 Copied! Paste it anywhere':'Copy failed — long-press the card to copy');};
+
+  // share image
+  let shareBlob=null,drawTok=0;
+  const redraw=async()=>{const tok=++drawTok;const cv=await drawShareCard(r,meta);if(tok!==drawTok)return;
+    cv.toBlob(b=>{if(!b||tok!==drawTok)return;shareBlob=b;const img=$('shareImg');if(!img)return;if(img.dataset.url)URL.revokeObjectURL(img.dataset.url);const u=URL.createObjectURL(b);img.dataset.url=u;img.src=u;img.classList.remove('opacity-0');const ld=$('shareImgLoad');if(ld)ld.remove();},'image/png');};
+  redraw();
+  $('btnShare').onclick=async()=>{Sound.click();const ok=await copyText(shareText(r,meta));toast(ok?'📋 Copied! Paste it anywhere':'Copy failed — try again');};
+  $('btnShareImg').onclick=async()=>{Sound.click();if(!shareBlob){toast('Still drawing… one sec');return;}
+    const name=`daily-profit-${c.mode==='archive'?'archive':'day'}-${c.day}.png`,file=new File([shareBlob],name,{type:'image/png'});
+    try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],text:shareText(r,meta)});return;}}catch(e){if(e&&e.name==='AbortError')return;}
+    try{const a=document.createElement('a');a.href=$('shareImg').src;a.download=name;document.body.appendChild(a);a.click();a.remove();toast('🖼️ Image saved');}catch(e){toast('Long-press the card to save it');}};
+
+  // leaderboard + crowd
+  if(showBoard){
+    const paintBoard=async()=>{
+      const data=await lbFetch(c.day);if(!$('lbCard'))return;
+      const b=boardFor(data,h);
+      $('lbCard').innerHTML=lbCardHTML(b,data,optimize(s,c.seed));
+      $('crowdCard').innerHTML=crowdCardHTML(b,data,c);
+      meta.pct=b.pct;meta.live=!data.demo;meta.rank=b.rank;meta.n=b.n;
+      if(ranked&&h&&Math.abs((h.pct||0)-b.pct)>.01){h.pct=b.pct;save();}
+      if(ranked)$('pctPill').innerHTML=`🌍 ${meta.live?`#${b.rank} of ${b.n} · `:''}Top ${Math.max(1,Math.round(100-b.pct))}% <span class="font-normal text-white/80">· beat ${Math.round(b.pct)}% of players</span>`;
+      redraw();
+      const f=$('lbJoin');if(f)f.onsubmit=async e=>{e.preventDefault();const n=cleanName($('lbName').value);if(!n){toast('Pick a name first');return;}
+        S.name=n;save();Sound.click();await lbSubmit(c.day);delete lbCache[c.day];toast(LB_LIVE()?'🏆 You\'re on the leaderboard!':'👍 Name saved');paintBoard();};
+    };
+    paintBoard();
+  }
+
   $('btnReveal').onclick=()=>{Sound.click();const b=$('revealBody'),open=b.classList.toggle('hide')===false;$('revealChev').style.transform=open?'rotate(180deg)':'';$('revealSub').textContent=open?'Tap to hide':'Tap to see how the best possible run was played';if(open)b.querySelector('table').classList.add('pop');};
   bindAdLinks();bindRetry();
   if($('btnReplayArch'))$('btnReplayArch').onclick=()=>{Sound.click();renderHome();show('screenHome');};
@@ -749,12 +1026,13 @@ $('btnHelp').onclick=()=>{Sound.click();$('modalHelp').classList.remove('hide');
 $('btnArchive').onclick=openPro;
 let resetArm=false;
 $('btnReset').onclick=()=>{if(!resetArm){resetArm=true;$('btnReset').textContent='Tap again to wipe streak, net worth & Pro';setTimeout(()=>{resetArm=false;$('btnReset').textContent='Reset demo data';},3000);return;}
-  try{localStorage.removeItem(KEY);}catch(e){}S={...defaults};Sound.muted=false;ctx=defaults4(dailyCtx());renderHeader();renderHome();show('screenHome');toast('🧹 Demo data reset');resetArm=false;$('btnReset').textContent='Reset demo data';};
+  try{localStorage.removeItem(KEY);}catch(e){}S={...defaults,pid:uuid4()};save();Sound.muted=false;ctx=defaults4(dailyCtx());renderHeader();renderHome();show('screenHome');toast('🧹 Demo data reset');resetArm=false;$('btnReset').textContent='Reset demo data';};
 
 /* ================= BOOT ================= */
 ctx=defaults4(dailyCtx());
 {const h=S.history[ctx.idx];if(h){ctx.inv=h.inv;ctx.price=h.price;ctx.mkt=h.mkt;}}
 renderHeader();renderHome();startCountdown();
+{const h=S.history[ctx.idx];if(h&&S.name)lbSubmit(h.day);}
 if(!S.last&&!Object.keys(S.history).length)setTimeout(()=>$('modalHelp').classList.remove('hide'),400);
 
 </script>
